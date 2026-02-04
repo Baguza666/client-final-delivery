@@ -1,129 +1,91 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { updateSettings } from '@/app/actions/settings';
+import React, { useState } from 'react'
+import { updateWorkspace } from '@/app/actions/workspace'
+import { useRouter } from 'next/navigation'
 
 export default function SettingsForm({ workspace }: { workspace: any }) {
-    const [loading, setLoading] = useState(false);
-    const [logoPreview, setLogoPreview] = useState<string | null>(workspace?.logo_url || null);
+    const router = useRouter()
+    const [loading, setLoading] = useState(false)
 
-    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const objectUrl = URL.createObjectURL(file);
-            setLogoPreview(objectUrl);
+    // Standard input style to keep code clean
+    const inputClass = "w-full bg-zinc-900 border border-zinc-800 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+    const labelClass = "block text-xs font-bold uppercase text-zinc-500 mb-1"
+
+    async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault()
+        setLoading(true)
+
+        const formData = new FormData(event.currentTarget)
+        const result = await updateWorkspace(formData)
+
+        if (result?.success) {
+            // ✅ CRITICAL: This pulls the new data from the server immediately
+            router.refresh()
+            alert("Paramètres enregistrés avec succès !")
+        } else {
+            alert("Erreur lors de l'enregistrement.")
         }
-    };
-
-    const handleSubmit = async (formData: FormData) => {
-        setLoading(true);
-        await updateSettings(formData);
-        setLoading(false);
-        alert('Paramètres mis à jour !');
-    };
+        setLoading(false)
+    }
 
     return (
-        <form action={handleSubmit} className="flex flex-col gap-8 pb-20">
-            <input type="hidden" name="workspace_id" value={workspace?.id} />
-            <input type="hidden" name="current_logo_url" value={workspace?.logo_url || ''} />
+        <form onSubmit={handleSubmit} className="space-y-8 bg-zinc-950/50 p-6 rounded-xl border border-zinc-900">
 
-            {/* 1. IDENTITY & LOGO CARD */}
-            <div className="glass-card p-8 rounded-3xl border border-white/5 flex flex-col md:flex-row gap-8 items-center md:items-start">
-
-                {/* Logo Uploader */}
-                <div className="flex flex-col items-center gap-4">
-                    <div className="relative group w-32 h-32 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center overflow-hidden bg-white/5 hover:border-primary/50 transition-colors">
-                        {logoPreview ? (
-                            <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
-                        ) : (
-                            <span className="material-symbols-outlined text-4xl text-text-secondary">add_a_photo</span>
-                        )}
-
-                        <input
-                            type="file"
-                            name="logo"
-                            accept="image/*"
-                            onChange={handleLogoChange}
-                            className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                        />
-                    </div>
-                    <p className="text-xs text-text-secondary uppercase tracking-widest font-bold">Votre Logo</p>
+            {/* 1. Identity */}
+            <div>
+                <h3 className="text-lg font-bold text-white mb-4 border-b border-zinc-800 pb-2">Identité Entreprise</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className={labelClass}>Nom de l'entreprise</label><input name="name" defaultValue={workspace?.name} className={inputClass} placeholder="IMSAL SERVICES" /></div>
+                    <div><label className={labelClass}>Email Contact</label><input name="email" defaultValue={workspace?.email} className={inputClass} /></div>
+                    <div><label className={labelClass}>Téléphone</label><input name="phone" defaultValue={workspace?.phone} className={inputClass} /></div>
+                    <div><label className={labelClass}>Site Web</label><input name="website" defaultValue={workspace?.website} className={inputClass} placeholder="imsalservices.ma" /></div>
                 </div>
+            </div>
 
-                {/* Name & Identifiers */}
-                <div className="flex-1 w-full space-y-5">
-                    <div className="flex flex-col gap-2">
-                        <label className="text-xs font-bold text-text-secondary uppercase tracking-wider">Nom de l'entreprise</label>
-                        <input
-                            name="name"
-                            defaultValue={workspace?.name || ''}
-                            placeholder="Ex: IMSAL SERVICES"
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none"
-                        />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <label className="text-xs font-bold text-text-secondary uppercase tracking-wider">Identifiants Légaux (Pied de page)</label>
-                        <input
-                            name="tax_id"
-                            defaultValue={workspace?.tax_id || ''}
-                            placeholder="Ex: ICE: 12345 • RC: 67890 • IF: 112233"
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none"
-                        />
-                        <p className="text-[10px] text-text-secondary">Ces informations apparaîtront automatiquement en bas de vos factures.</p>
+            {/* 2. Address */}
+            <div>
+                <h3 className="text-lg font-bold text-white mb-4 border-b border-zinc-800 pb-2">Adresse</h3>
+                <div className="space-y-4">
+                    <div><label className={labelClass}>Adresse complète</label><input name="address" defaultValue={workspace?.address} className={inputClass} /></div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className={labelClass}>Ville</label><input name="city" defaultValue={workspace?.city} className={inputClass} /></div>
+                        <div><label className={labelClass}>Pays</label><input name="country" defaultValue={workspace?.country} className={inputClass} /></div>
                     </div>
                 </div>
             </div>
 
-            {/* 2. ADDRESS CARD */}
-            <div className="glass-card p-8 rounded-3xl border border-white/5 space-y-6">
-                <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary">location_on</span>
-                    Adresse & Coordonnées
-                </h3>
-
-                <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-text-secondary uppercase tracking-wider">Adresse</label>
-                    <input
-                        name="address"
-                        defaultValue={workspace?.address || ''}
-                        placeholder="Ex: 123 Boulevard Mohammed V"
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none"
-                    />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="flex flex-col gap-2">
-                        <label className="text-xs font-bold text-text-secondary uppercase tracking-wider">Ville</label>
-                        <input
-                            name="city"
-                            defaultValue={workspace?.city || ''}
-                            placeholder="Ex: Casablanca"
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none"
-                        />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-xs font-bold text-text-secondary uppercase tracking-wider">Pays</label>
-                        <input
-                            name="country"
-                            defaultValue={workspace?.country || ''}
-                            placeholder="Ex: Maroc"
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none"
-                        />
-                    </div>
+            {/* 3. Legal Info (ICE, RC, etc.) */}
+            <div>
+                <h3 className="text-lg font-bold text-white mb-4 border-b border-zinc-800 pb-2">Informations Légales (Pied de page)</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div><label className={labelClass}>ICE</label><input name="ice" defaultValue={workspace?.ice} className={inputClass} /></div>
+                    <div><label className={labelClass}>RC</label><input name="rc" defaultValue={workspace?.rc} className={inputClass} /></div>
+                    <div><label className={labelClass}>I.F. (Tax ID)</label><input name="tax_id" defaultValue={workspace?.tax_id} className={inputClass} /></div>
+                    <div><label className={labelClass}>CNSS</label><input name="cnss" defaultValue={workspace?.cnss} className={inputClass} /></div>
+                    <div><label className={labelClass}>Patente (TP)</label><input name="tp" defaultValue={workspace?.tp} className={inputClass} /></div>
                 </div>
             </div>
 
-            {/* SAVE BUTTON */}
-            <div className="flex justify-end">
+            {/* 4. Bank Info */}
+            <div>
+                <h3 className="text-lg font-bold text-white mb-4 border-b border-zinc-800 pb-2">Coordonnées Bancaires</h3>
+                <div className="grid grid-cols-1 gap-4">
+                    <div><label className={labelClass}>Nom de la Banque</label><input name="bank_name" defaultValue={workspace?.bank_name} className={inputClass} placeholder="BANK OF AFRICA" /></div>
+                    <div><label className={labelClass}>RIB (24 chiffres)</label><input name="rib" defaultValue={workspace?.rib} className={inputClass} placeholder="011................" /></div>
+                </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="pt-4 flex justify-end">
                 <button
                     type="submit"
                     disabled={loading}
-                    className="px-8 py-4 rounded-xl bg-gold-gradient text-black font-bold shadow-[0_0_20px_rgba(244,185,67,0.3)] hover:scale-105 transition-transform disabled:opacity-50 flex items-center gap-2"
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
                 >
-                    {loading ? 'Enregistrement...' : 'SAUVEGARDER LES MODIFICATIONS'}
+                    {loading ? 'Enregistrement...' : 'Enregistrer les modifications'}
                 </button>
             </div>
         </form>
-    );
+    )
 }
