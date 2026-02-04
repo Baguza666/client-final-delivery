@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 1. DEFINE VARIABLES (Standard CSS method) */
+:root {
+  --background-dark: #050505;
+  --primary: #f4b943;
+  --text-secondary: #a1a1aa;
+
+  /* Gradients */
+  --gold-gradient: linear-gradient(135deg, #f4b943 0%, #edc967 100%);
+}
+
+/* 2. BASE STYLES */
+body {
+  background-color: var(--background-dark);
+  color: white;
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+/* 3. UTILITIES & COMPONENTS */
+@layer utilities {
+
+  /* Custom Animation Class */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  /* Scrollbar Hiding */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Text Shadow for Dashboard numbers */
+  .text-shadow {
+    text-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
+  }
+}
+
+/* 4. CUSTOM CLASSES */
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-header {
+  background: rgba(5, 5, 5, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.bg-gold-gradient {
+  background: var(--gold-gradient);
+}
+
+.text-gold-gradient {
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.clip-path-triangle {
+  clip-path: polygon(100% 0, 0% 100%, 100% 100%);
+}
+
+/* 5. ANIMATIONS */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
