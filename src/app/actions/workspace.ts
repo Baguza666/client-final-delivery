@@ -12,29 +12,12 @@ export async function updateWorkspace(formData: FormData) {
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     )
 
-    // 1. Get current workspace
-    let { data: workspace, error: fetchError } = await supabase.from('workspaces').select('id').single()
+    // 1. Prepare data from form
+    const name = formData.get('name') as string
+    const logoFile = formData.get('logo') as File
 
-    // If it doesn't exist, try to create one
-    if (!workspace) {
-        console.log("No workspace found, creating one...")
-        const { data: newWs, error: createError } = await supabase.from('workspaces').insert({}).select().single()
-
-        if (createError) {
-            console.error("Create Error:", createError)
-            return { error: "Erreur création: " + createError.message }
-        }
-        workspace = newWs
-    }
-
-    // SAFETY CHECK: If it's still null, we stop.
-    if (!workspace) {
-        return { error: "Impossible de trouver l'espace de travail." }
-    }
-
-    // 2. Prepare data
-    const updates = {
-        name: formData.get('name') as string,
+    const updates: any = {
+        name: name,
         address: formData.get('address') as string,
         city: formData.get('city') as string,
         country: formData.get('country') as string,
@@ -51,15 +34,33 @@ export async function updateWorkspace(formData: FormData) {
         updated_at: new Date().toISOString(),
     }
 
-    // 3. Update with the ID we found
-    const { error: updateError } = await supabase
-        .from('workspaces')
-        .update(updates)
-        .eq('id', workspace.id)
+    // 2. Handle Logo Upload if a new file is provided
+    if (logoFile && logoFile.size > 0) {
+        const fileExt = logoFile.name.split('.').pop()
+        const fileName = `logo-${Math.random()}.${fileExt}`
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('logos')
+            .upload(fileName, logoFile)
 
-    if (updateError) {
-        console.error("Update Error:", updateError)
-        return { error: "Erreur update: " + updateError.message }
+        if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+                .from('logos')
+                .getPublicUrl(fileName)
+            updates.logo_url = publicUrl
+        }
+    }
+
+    // 3. Find if workspace exists
+    const { data: existingWs } = await supabase.from('workspaces').select('id').single()
+
+    if (existingWs) {
+        // UPDATE existing
+        const { error } = await supabase.from('workspaces').update(updates).eq('id', existingWs.id)
+        if (error) return { error: "Update failed: " + error.message }
+    } else {
+        // INSERT new (Fixes the NOT NULL "name" error)
+        const { error } = await supabase.from('workspaces').insert([updates])
+        if (error) return { error: "Insert failed: " + error.message }
     }
 
     revalidatePath('/settings')
