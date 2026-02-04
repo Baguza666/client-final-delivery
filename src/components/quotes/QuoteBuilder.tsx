@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
-import { createQuote } from './quoteActions' // Import the action we just fixed
+// 👇 FIX: Capitalized 'Q' to match your actual filename 'QuoteActions.tsx'
+import { createQuote } from './QuoteActions'
 
 export default function QuoteBuilder() {
     const router = useRouter()
@@ -47,19 +48,21 @@ export default function QuoteBuilder() {
         if (!clientId) return alert("Veuillez sélectionner un client.")
         setLoading(true)
 
+        // Prepare FormData
         const formData = new FormData()
         formData.append('client_id', clientId)
         formData.append('date', date)
+        formData.append('valid_until', dueDate || date)
         formData.append('items', JSON.stringify(items))
 
-        // Type the result to match the Server Action
+        // Call Server Action
         const result = await createQuote(formData)
 
-        if (result.success === true) {
-            // TypeScript now knows 'id' exists because success is true
+        if (result.success) {
+            // Success: Redirect to the new quote
             router.push(`/quotes/${result.id}`)
         } else {
-            // TypeScript now knows 'error' exists because success is false
+            // Error: Show message
             alert("Erreur: " + result.error)
         }
         setLoading(false)
