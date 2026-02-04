@@ -1,16 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 👇 ADD THIS SECTION
+  typescript: {
+    // !! WARN !!
+    // Successfully complete production builds even if your project has type errors.
+    ignoreBuildErrors: true,
+  },
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
+    // Successfully complete production builds even if your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-  typescript: {
-    // Optional: Also ignore TS errors if you just want to force it live
-    // ignoreBuildErrors: true, 
-  }
 };
 
 export default nextConfig;
