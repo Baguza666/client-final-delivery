@@ -21,7 +21,7 @@ export default function LoginPage() {
         await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                // 👇 HARDCODE IT TO BE SURE
+                // 👇 HARDCODED TO MATCH YOUR CUSTOM DOMAIN
                 redirectTo: `https://app.imsalservices.ma/auth/callback`,
                 queryParams: {
                     access_type: 'offline',
@@ -50,7 +50,8 @@ export default function LoginPage() {
                     password,
                     options: {
                         data: { full_name: name },
-                        emailRedirectTo: `${location.origin}/auth/callback`
+                        // Ensure email links also point to the custom domain
+                        emailRedirectTo: `https://app.imsalservices.ma/auth/callback`
                     }
                 })
                 if (error) throw error
@@ -83,10 +84,9 @@ export default function LoginPage() {
 
             <div className="w-full max-w-md p-8 relative z-10">
 
-                {/* Logo Section (Fixed Image) */}
+                {/* Logo Section */}
                 <div className="flex justify-center mb-8">
                     <div className="relative h-16 flex items-center">
-                        {/* Switched to standard <img> for robustness */}
                         <img
                             src="/logo1.png"
                             alt="IMSAL"

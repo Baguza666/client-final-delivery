@@ -7,8 +7,7 @@ export async function GET(request: Request) {
     const code = searchParams.get('code')
     const next = searchParams.get('next') ?? '/'
 
-    // 👇 FIX: Force the redirect to your PRODUCTION URL.
-    // This ensures the cookie and the user land on the exact same domain.
+    // 👇 YOUR PRODUCTION DOMAIN
     const host = 'https://app.imsalservices.ma'
 
     if (code) {
@@ -35,11 +34,11 @@ export async function GET(request: Request) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
 
         if (!error) {
-            // ✅ SUCCESS: Redirect explicitly to https://app.imsalservices.ma
+            // ✅ SUCCESS: Redirect explicitly to the custom domain
             return NextResponse.redirect(`${host}${next}`)
         }
     }
 
-    // ❌ FAILURE: Redirect explicitly to login
+    // ❌ FAILURE: Redirect explicitly to login on custom domain
     return NextResponse.redirect(`${host}/login?error=callback_failed`)
 }
