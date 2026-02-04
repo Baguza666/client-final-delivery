@@ -12,23 +12,27 @@ export async function updateWorkspace(formData: FormData) {
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     )
 
-    // 1. Get current workspace (or create one if missing)
-    let { data: workspace } = await supabase.from('workspaces').select('id').single()
+    // 1. Get current workspace
+    let { data: workspace, error: fetchError } = await supabase.from('workspaces').select('id').single()
 
-    // If no workspace exists, create a dummy one to update
+    // If it doesn't exist, try to create one
     if (!workspace) {
-        const { data: newWs } = await supabase.from('workspaces').insert({}).select().single()
+        console.log("No workspace found, creating one...")
+        const { data: newWs, error: createError } = await supabase.from('workspaces').insert({}).select().single()
+
+        if (createError) {
+            console.error("Create Error:", createError)
+            return { error: "Erreur création: " + createError.message }
+        }
         workspace = newWs
     }
 
-    // 🔴 THE FIX: TypeScript safety check
-    // If for some reason it's STILL null, stop here.
+    // SAFETY CHECK: If it's still null, we stop.
     if (!workspace) {
-        console.error('Critical: No workspace found or created.')
-        return { error: 'Impossible de trouver ou créer un espace de travail.' }
+        return { error: "Impossible de trouver l'espace de travail." }
     }
 
-    // 2. Prepare data object
+    // 2. Prepare data
     const updates = {
         name: formData.get('name') as string,
         address: formData.get('address') as string,
@@ -39,26 +43,25 @@ export async function updateWorkspace(formData: FormData) {
         website: formData.get('website') as string,
         ice: formData.get('ice') as string,
         rc: formData.get('rc') as string,
-        tax_id: formData.get('tax_id') as string, // "IF"
+        tax_id: formData.get('tax_id') as string,
         cnss: formData.get('cnss') as string,
-        tp: formData.get('tp') as string, // "Taxe Professionnelle"
+        tp: formData.get('tp') as string,
         bank_name: formData.get('bank_name') as string,
         rib: formData.get('rib') as string,
         updated_at: new Date().toISOString(),
     }
 
-    // 3. Update Database
-    const { error } = await supabase
+    // 3. Update with the ID we found
+    const { error: updateError } = await supabase
         .from('workspaces')
         .update(updates)
-        .eq('id', workspace.id) // ✅ Error gone because we checked !workspace above
+        .eq('id', workspace.id)
 
-    if (error) {
-        console.error('Error updating settings:', error)
-        return { error: 'Failed to update settings' }
+    if (updateError) {
+        console.error("Update Error:", updateError)
+        return { error: "Erreur update: " + updateError.message }
     }
 
-    // 4. FORCE REFRESH
     revalidatePath('/settings')
     revalidatePath('/', 'layout')
     return { success: true }

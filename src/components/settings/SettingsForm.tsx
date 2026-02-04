@@ -20,11 +20,11 @@ export default function SettingsForm({ workspace }: { workspace: any }) {
         const result = await updateWorkspace(formData)
 
         if (result?.success) {
-            // ✅ CRITICAL: This pulls the new data from the server immediately
             router.refresh()
-            alert("Paramètres enregistrés avec succès !")
+            alert("✅ Paramètres enregistrés avec succès !")
         } else {
-            alert("Erreur lors de l'enregistrement.")
+            // This will now tell us the REAL error
+            alert("❌ Erreur: " + (result?.error || "Inconnue"))
         }
         setLoading(false)
     }
