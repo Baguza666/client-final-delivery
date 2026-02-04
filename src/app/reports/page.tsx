@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from "next/navigation";
 import Sidebar from '@/components/Sidebar';
 import ReportsView from '@/components/reports/ReportsView';
-import ExportButton from '@/components/reports/ExportButton'; // Import the new button
+import ExportButton from '@/components/reports/ExportButton';
 
 export default async function ReportsPage() {
     const cookieStore = await cookies();
@@ -14,16 +14,32 @@ export default async function ReportsPage() {
     );
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) redirect("/");
 
-    const { data: workspace } = await supabase.from('workspaces').select('id').eq('owner_id', user.id).single();
+    // 🔴 FIX: Redirect to login if session is lost
+    if (!user) redirect("/login");
 
-    if (!workspace) return null;
+    const { data: workspace } = await supabase
+        .from('workspaces')
+        .select('id')
+        .eq('owner_id', user.id)
+        .single();
 
-    // FETCH ALL DATA FOR REPORTS & EXPORT
+    // If no workspace, render empty state instead of crashing
+    if (!workspace) {
+        return (
+            <div className="bg-background-dark min-h-screen flex text-white">
+                <Sidebar />
+                <main className="ml-72 flex-1 p-8 flex items-center justify-center">
+                    <p className="text-zinc-500">Aucune donnée disponible. Veuillez configurer vos paramètres.</p>
+                </main>
+            </div>
+        );
+    }
+
+    // FETCH DATA
     const { data: invoices } = await supabase
         .from('invoices')
-        .select('*, client:clients(name)') // Fetch client names for better export
+        .select('*, client:clients(name)')
         .eq('workspace_id', workspace.id);
 
     const { data: expenses } = await supabase
@@ -34,14 +50,13 @@ export default async function ReportsPage() {
     return (
         <div className="bg-background-dark text-white font-sans overflow-hidden min-h-screen antialiased selection:bg-primary selection:text-black">
             <div className="flex h-full w-full">
-                <Sidebar />
+                <div className="fixed left-0 top-0 h-full z-50">
+                    <Sidebar />
+                </div>
 
                 <main className="flex-1 flex flex-col relative overflow-hidden bg-background-dark ml-72">
-
                     <header className="absolute top-0 left-0 right-0 z-10 glass-header px-8 h-20 flex items-center justify-between">
                         <h2 className="text-white text-xl font-bold tracking-tight">RAPPORTS & ANALYSES</h2>
-
-                        {/* THE NEW WORKING EXPORT BUTTON */}
                         <ExportButton invoices={invoices || []} expenses={expenses || []} />
                     </header>
 

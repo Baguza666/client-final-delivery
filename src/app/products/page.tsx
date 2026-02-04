@@ -13,9 +13,11 @@ export default async function ProductsPage() {
     );
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) redirect("/");
 
-    // Fetch products
+    // 🔴 FIX: Redirect to login instead of dashboard to prevent loops
+    if (!user) redirect("/login");
+
+    // Fetch products safely
     const { data: products } = await supabase
         .from('products')
         .select('*')
@@ -25,10 +27,11 @@ export default async function ProductsPage() {
     return (
         <div className="bg-background-dark text-white font-sans overflow-hidden min-h-screen antialiased selection:bg-primary selection:text-black">
             <div className="flex h-full w-full">
-                <Sidebar />
+                <div className="fixed left-0 top-0 h-full z-50">
+                    <Sidebar />
+                </div>
 
                 <main className="flex-1 flex flex-col relative overflow-hidden bg-background-dark ml-72">
-
                     <header className="absolute top-0 left-0 right-0 z-10 glass-header px-8 h-20 flex items-center justify-between">
                         <h2 className="text-white text-xl font-bold tracking-tight">MES SERVICES</h2>
                     </header>
