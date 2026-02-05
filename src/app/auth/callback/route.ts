@@ -14,13 +14,17 @@ export async function GET(request: Request) {
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             {
                 cookies: {
-                    getAll() { return cookieStore.getAll() },
+                    getAll() {
+                        return cookieStore.getAll()
+                    },
                     setAll(cookiesToSet) {
                         try {
                             cookiesToSet.forEach(({ name, value, options }) =>
                                 cookieStore.set(name, value, options)
                             )
-                        } catch { }
+                        } catch {
+                            // Cookie setting failed in Route Handler context
+                        }
                     },
                 },
             }
@@ -29,11 +33,23 @@ export async function GET(request: Request) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
 
         if (!error) {
-            // ✅ DYNAMIC REDIRECT: Sends you back to client-final-delivery.vercel.app
-            return NextResponse.redirect(`${origin}${next}`)
+            // Force a hard redirect to the dashboard after successful auth
+            const forwardedHost = request.headers.get('x-forwarded-host')
+            const isLocalEnv = process.env.NODE_ENV === 'development'
+
+            if (isLocalEnv) {
+                // In development, use the origin from the URL
+                return NextResponse.redirect(`${origin}${next}`)
+            } else if (forwardedHost) {
+                // In production (Vercel), use the forwarded host for proper domain
+                return NextResponse.redirect(`https://${forwardedHost}${next}`)
+            } else {
+                // Fallback to origin
+                return NextResponse.redirect(`${origin}${next}`)
+            }
         }
     }
 
-    // Return to login with error
+    // Error fallback: redirect to login with error param
     return NextResponse.redirect(`${origin}/login?error=callback_failed`)
 }
