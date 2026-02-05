@@ -2,27 +2,44 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from "next/navigation";
 import Sidebar from '@/components/Sidebar';
-// ✅ Import the new Manager component
 import ClientManager from '@/components/clients/ClientsManager';
 
 export default async function ClientsPage() {
-    // 1. Setup Supabase
+    // 1. Setup Supabase with FULL cookie handling (getAll + setAll)
     const cookieStore = await cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { get: (name) => cookieStore.get(name)?.value } }
+        {
+            cookies: {
+                getAll() {
+                    return cookieStore.getAll();
+                },
+                setAll(cookiesToSet) {
+                    try {
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            cookieStore.set(name, value, options)
+                        );
+                    } catch {
+                        // Ignore errors in Server Components (read-only context)
+                    }
+                },
+            },
+        }
     );
 
-    // 2. Check Auth
+    // 2. Check Auth - getUser() refreshes the session token
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) redirect("/login");
+
+    if (!user) {
+        redirect("/login");
+    }
 
     // 3. Fetch Clients (Filtered by Owner)
     const { data: clients, error } = await supabase
         .from('clients')
         .select('*')
-        .eq('owner_id', user.id) // ✅ Security: Only fetch my clients
+        .eq('owner_id', user.id)
         .order('created_at', { ascending: false });
 
     if (error) console.error("Error fetching clients:", error);
@@ -46,10 +63,7 @@ export default async function ClientsPage() {
                     {/* Scrollable Content Area */}
                     <div className="flex-1 overflow-y-auto pt-28 pb-10 px-8">
                         <div className="max-w-[1200px] mx-auto w-full">
-
-                            {/* ✅ The New Manager (Handles List, Add, Edit, Delete) */}
                             <ClientManager clients={clients || []} />
-
                         </div>
                     </div>
                 </main>
