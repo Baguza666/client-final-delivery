@@ -82,11 +82,12 @@ export async function createQuote(formData: FormData) {
 
     if (quoteError) throw quoteError
 
-    // 5. Insert Items
+    // 5. Insert Items (WITH UNIT FIELD)
     const { error: itemsError } = await supabase.from('quote_items').insert(
       items.map((item: any) => ({
         quote_id: quote.id,
         description: item.description,
+        unit: item.unit || 'u',
         quantity: item.quantity,
         unit_price: item.unit_price,
         total: item.total

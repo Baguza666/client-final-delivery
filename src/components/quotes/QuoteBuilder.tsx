@@ -13,6 +13,7 @@ interface Client {
 
 interface QuoteItem {
     description: string
+    unit: string
     quantity: number
     unit_price: number
     total: number
@@ -20,6 +21,7 @@ interface QuoteItem {
 
 const emptyItem = (): QuoteItem => ({
     description: '',
+    unit: 'u',
     quantity: 1,
     unit_price: 0,
     total: 0,
@@ -67,6 +69,8 @@ export default function QuoteBuilder() {
 
             if (field === 'description') {
                 item.description = value as string
+            } else if (field === 'unit') {
+                item.unit = value as string
             } else {
                 const num = typeof value === 'string' ? parseFloat(value) || 0 : value
                 if (field === 'quantity') item.quantity = num
@@ -144,15 +148,16 @@ export default function QuoteBuilder() {
                 </div>
             </div>
 
-            {/* Items Table - NO UNIT COLUMN */}
+            {/* Items Table - WITH UNIT COLUMN */}
             <div className="overflow-x-auto mb-6">
                 <table className="w-full text-left">
                     <thead>
                         <tr className="text-zinc-500 text-[10px] uppercase border-b border-zinc-700 tracking-widest">
-                            <th className="pb-4 w-[50%]">Description</th>
-                            <th className="pb-4 text-center w-[12%]">Qté</th>
+                            <th className="pb-4 w-[40%]">Description</th>
+                            <th className="pb-4 text-center w-[10%]">Unité</th>
+                            <th className="pb-4 text-center w-[10%]">Qté</th>
                             <th className="pb-4 text-center w-[18%]">Prix Unitaire</th>
-                            <th className="pb-4 text-right w-[15%]">Total HT</th>
+                            <th className="pb-4 text-right w-[17%]">Total HT</th>
                             <th className="pb-4 w-[5%]"></th>
                         </tr>
                     </thead>
@@ -165,6 +170,15 @@ export default function QuoteBuilder() {
                                         onChange={(e) => updateItem(i, 'description', e.target.value)}
                                         className="w-full bg-transparent outline-none text-white placeholder:text-zinc-600"
                                         placeholder="Description..."
+                                    />
+                                </td>
+                                <td className="py-4">
+                                    <input
+                                        value={item.unit}
+                                        onChange={(e) => updateItem(i, 'unit', e.target.value)}
+                                        className="w-20 bg-transparent outline-none text-white text-center font-mono uppercase"
+                                        placeholder="u"
+                                        maxLength={10}
                                     />
                                 </td>
                                 <td className="py-4">
