@@ -12,27 +12,21 @@ interface QuoteResult {
 export async function createQuote(formData: FormData): Promise<QuoteResult> {
   const supabase = await createClient()
 
-  // ✅ SECURE: Use getUser() instead of getSession() for server-side auth
-  // getUser() validates the token with Supabase Auth server
+  // Verify auth with getUser()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    console.error('Auth Error:', authError?.message ?? 'No user found')
-    return {
-      success: false,
-      error: 'Session expirée. Veuillez vous reconnecter.'
-    }
+    return { success: false, error: 'Session expirée. Veuillez vous reconnecter.' }
   }
 
-  // Fetch user's workspace
-  const { data: workspace, error: workspaceError } = await supabase
+  // Get workspace
+  const { data: workspace, error: wsError } = await supabase
     .from('workspaces')
     .select('id')
     .eq('owner_id', user.id)
     .single()
 
-  if (workspaceError || !workspace) {
-    console.error('Workspace Error:', workspaceError?.message)
+  if (wsError || !workspace) {
     return { success: false, error: 'Espace de travail introuvable.' }
   }
 
@@ -46,14 +40,13 @@ export async function createQuote(formData: FormData): Promise<QuoteResult> {
     const totalTTC = parseFloat(formData.get('total_ttc') as string)
     const items = JSON.parse(formData.get('items') as string)
 
-    // Generate quote number: DEV-YYYY-COUNT
+    // Generate quote number
     const { count } = await supabase
       .from('quotes')
       .select('*', { count: 'exact', head: true })
       .eq('workspace_id', workspace.id)
 
-    const year = new Date().getFullYear()
-    const number = `DEV-${year}-${(count ?? 0) + 1}`
+    const number = `DEV-${new Date().getFullYear()}-${(count ?? 0) + 1}`
 
     // Insert quote
     const { data: quote, error: quoteError } = await supabase
@@ -73,12 +66,9 @@ export async function createQuote(formData: FormData): Promise<QuoteResult> {
       .select('id')
       .single()
 
-    if (quoteError) {
-      console.error('Quote Insert Error:', quoteError.message)
-      throw new Error(quoteError.message)
-    }
+    if (quoteError) throw quoteError
 
-    // Insert quote items (NO UNIT COLUMN)
+    // Insert items (NO UNIT COLUMN)
     const quoteItems = items.map((item: {
       description: string
       quantity: number
@@ -96,16 +86,13 @@ export async function createQuote(formData: FormData): Promise<QuoteResult> {
       .from('quote_items')
       .insert(quoteItems)
 
-    if (itemsError) {
-      console.error('Quote Items Insert Error:', itemsError.message)
-      throw new Error(itemsError.message)
-    }
+    if (itemsError) throw itemsError
 
     revalidatePath('/quotes')
     return { success: true, id: quote.id }
 
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Erreur inconnue'
-    return { success: false, error: `Erreur DB: ${message}` }
+    const msg = err instanceof Error ? err.message : 'Erreur inconnue'
+    return { success: false, error: `Erreur DB: ${msg}` }
   }
 }

@@ -11,7 +11,6 @@ export default function LoginPage() {
     const [message, setMessage] = useState<string | null>(null)
     const router = useRouter()
 
-    // Memoize Supabase client to prevent recreation
     const supabase = useMemo(
         () =>
             createBrowserClient(
@@ -21,13 +20,11 @@ export default function LoginPage() {
         []
     )
 
-    // ✅ CRITICAL: Check if user is already logged in
-    // This prevents the "stuck on login" loop
+    // Check if user is already logged in
     useEffect(() => {
         const checkUser = async () => {
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
-                // User is already authenticated, redirect to dashboard
                 router.replace('/')
             } else {
                 setCheckingAuth(false)
@@ -36,7 +33,7 @@ export default function LoginPage() {
         checkUser()
     }, [supabase, router])
 
-    // Listen for auth state changes (handles OAuth callback)
+    // Listen for auth state changes
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             (event, session) => {
@@ -46,32 +43,24 @@ export default function LoginPage() {
                 }
             }
         )
-
         return () => subscription.unsubscribe()
     }, [supabase, router])
 
-    // 1. GOOGLE LOGIN
     const handleGoogleLogin = async () => {
         const origin = window.location.origin
-        const redirectTo = `${origin}/auth/callback`
 
-        const { error } = await supabase.auth.signInWithOAuth({
+        await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo,
+                redirectTo: `${origin}/auth/callback`,
                 queryParams: {
                     access_type: 'offline',
                     prompt: 'consent',
                 },
             },
         })
-
-        if (error) {
-            setMessage(error.message)
-        }
     }
 
-    // 2. EMAIL LOGIN / SIGNUP
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
         setLoading(true)
@@ -94,24 +83,22 @@ export default function LoginPage() {
                     },
                 })
                 if (error) throw error
-                setMessage('Compte créé ! Veuillez vérifier votre email.')
+                setMessage('Compte créé ! Vérifiez votre email.')
             } else {
                 const { error } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 })
                 if (error) throw error
-                // The onAuthStateChange listener will handle redirect
             }
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : 'Une erreur est survenue.'
-            setMessage(message)
+            const msg = error instanceof Error ? error.message : 'Erreur inconnue'
+            setMessage(msg)
         } finally {
             setLoading(false)
         }
     }
 
-    // Show loading while checking auth
     if (checkingAuth) {
         return (
             <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -122,12 +109,10 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen bg-[#050505] flex items-center justify-center relative overflow-hidden font-['Inter']">
-            {/* Ambient Background Effects */}
             <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-[#EAB308]/5 rounded-full blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[100px] pointer-events-none" />
 
             <div className="w-full max-w-md p-8 relative z-10">
-                {/* Logo */}
                 <div className="flex justify-center mb-8">
                     <img src="/logo1.png" alt="IMSAL" className="h-16 w-auto object-contain" />
                 </div>
@@ -137,95 +122,64 @@ export default function LoginPage() {
                         {isSignUp ? 'Créer un compte' : 'Bon retour'}
                     </h2>
                     <p className="text-zinc-500 text-xs text-center mb-6">
-                        Gérez votre activité financière en toute sérénité
+                        Gérez votre activité financière
                     </p>
 
-                    {/* GOOGLE BUTTON */}
                     <button
                         onClick={handleGoogleLogin}
                         type="button"
                         className="w-full bg-white text-black font-bold py-3 rounded-xl hover:bg-zinc-200 transition-colors flex items-center justify-center gap-3 mb-6"
                     >
-                        <img
-                            src="https://www.svgrepo.com/show/475656/google-color.svg"
-                            alt="Google"
-                            className="w-5 h-5"
-                        />
+                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
                         <span className="text-sm">Continuer avec Google</span>
                     </button>
 
-                    {/* Divider */}
                     <div className="relative mb-6">
                         <div className="absolute inset-0 flex items-center">
                             <div className="w-full border-t border-zinc-700"></div>
                         </div>
                         <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-wider">
-                            <span className="bg-zinc-900/50 backdrop-blur px-2 text-zinc-500">
-                                Ou par email
-                            </span>
+                            <span className="bg-zinc-900/50 px-2 text-zinc-500">Ou par email</span>
                         </div>
                     </div>
 
-                    {/* EMAIL FORM */}
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {isSignUp && (
-                            <div>
-                                <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                                    Nom Complet
-                                </label>
-                                <input
-                                    name="name"
-                                    type="text"
-                                    required
-                                    placeholder="Ex: Hicham Zineddine"
-                                    className="w-full bg-black/50 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#EAB308] focus:border-[#EAB308] outline-none transition-all placeholder:text-zinc-700 text-sm"
-                                />
-                            </div>
+                            <input
+                                name="name"
+                                type="text"
+                                required
+                                placeholder="Nom complet"
+                                className="w-full bg-black/50 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#EAB308]"
+                            />
                         )}
-
-                        <div>
-                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                                Email
-                            </label>
-                            <input
-                                name="email"
-                                type="email"
-                                required
-                                placeholder="nom@imsal.ma"
-                                className="w-full bg-black/50 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#EAB308] focus:border-[#EAB308] outline-none transition-all placeholder:text-zinc-700 text-sm"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-                                Mot de passe
-                            </label>
-                            <input
-                                name="password"
-                                type="password"
-                                required
-                                placeholder="••••••••"
-                                className="w-full bg-black/50 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-[#EAB308] focus:border-[#EAB308] outline-none transition-all placeholder:text-zinc-700 text-sm"
-                            />
-                        </div>
+                        <input
+                            name="email"
+                            type="email"
+                            required
+                            placeholder="Email"
+                            className="w-full bg-black/50 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#EAB308]"
+                        />
+                        <input
+                            name="password"
+                            type="password"
+                            required
+                            placeholder="Mot de passe"
+                            className="w-full bg-black/50 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#EAB308]"
+                        />
 
                         {message && (
-                            <div
-                                className={`text-xs text-center p-3 rounded-lg font-medium border ${message.includes('créé')
-                                        ? 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10'
-                                        : 'text-red-400 border-red-500/20 bg-red-500/10'
-                                    }`}
-                            >
+                            <div className={`text-xs p-3 rounded-lg ${message.includes('créé') ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'}`}>
                                 {message}
                             </div>
                         )}
 
                         <button
                             disabled={loading}
-                            className="w-full bg-[#EAB308] hover:bg-[#EAB308]/90 text-black font-bold py-3.5 rounded-xl transition-all transform active:scale-[0.98] mt-2 flex justify-center items-center gap-2 shadow-lg shadow-yellow-900/20"
+                            className="w-full bg-[#EAB308] text-black font-bold py-3.5 rounded-xl hover:bg-[#EAB308]/90 transition-all flex justify-center items-center"
                         >
                             {loading ? (
-                                <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></span>
+                                <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
                             ) : (
                                 <span>{isSignUp ? 'Créer mon compte' : 'Se Connecter'}</span>
                             )}
@@ -234,15 +188,10 @@ export default function LoginPage() {
 
                     <div className="mt-6 text-center">
                         <button
-                            onClick={() => {
-                                setIsSignUp(!isSignUp)
-                                setMessage(null)
-                            }}
-                            className="text-zinc-500 hover:text-white text-xs transition-colors underline decoration-zinc-700 underline-offset-4"
+                            onClick={() => { setIsSignUp(!isSignUp); setMessage(null) }}
+                            className="text-zinc-500 hover:text-white text-xs underline"
                         >
-                            {isSignUp
-                                ? 'Vous avez déjà un compte ? Connectez-vous'
-                                : 'Nouveau ? Créer un compte'}
+                            {isSignUp ? 'Déjà un compte ? Connexion' : 'Nouveau ? Créer un compte'}
                         </button>
                     </div>
                 </div>

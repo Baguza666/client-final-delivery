@@ -29,18 +29,16 @@ export default function QuoteBuilder() {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [clients, setClients] = useState<Client[]>([])
-
     const [clientId, setClientId] = useState('')
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [discountRate, setDiscountRate] = useState(0)
     const [items, setItems] = useState<QuoteItem[]>([emptyItem()])
 
     const supabase = useMemo(
-        () =>
-            createBrowserClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            ),
+        () => createBrowserClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        ),
         []
     )
 
@@ -52,14 +50,13 @@ export default function QuoteBuilder() {
         fetchClients()
     }, [supabase])
 
-    // Financial calculations
+    // Financial calculations: Subtotal -> Discount -> Net HT -> TVA -> Total TTC
     const totals = useMemo(() => {
         const subtotal = items.reduce((sum, item) => sum + item.total, 0)
         const discountAmount = subtotal * (discountRate / 100)
         const netHT = subtotal - discountAmount
         const tva = netHT * 0.2
         const totalTTC = netHT + tva
-
         return { subtotal, discountAmount, netHT, tva, totalTTC }
     }, [items, discountRate])
 
@@ -71,39 +68,26 @@ export default function QuoteBuilder() {
             if (field === 'description') {
                 item.description = value as string
             } else {
-                const numValue = typeof value === 'string' ? parseFloat(value) || 0 : value
-                if (field === 'quantity') item.quantity = numValue
-                if (field === 'unit_price') item.unit_price = numValue
+                const num = typeof value === 'string' ? parseFloat(value) || 0 : value
+                if (field === 'quantity') item.quantity = num
+                if (field === 'unit_price') item.unit_price = num
             }
 
-            // Recalculate line total
             item.total = item.quantity * item.unit_price
             updated[index] = item
             return updated
         })
     }, [])
 
-    const addItem = useCallback(() => {
-        setItems((prev) => [...prev, emptyItem()])
-    }, [])
+    const addItem = useCallback(() => setItems(prev => [...prev, emptyItem()]), [])
 
     const removeItem = useCallback((index: number) => {
-        setItems((prev) => {
-            if (prev.length === 1) return prev
-            return prev.filter((_, i) => i !== index)
-        })
+        setItems(prev => prev.length === 1 ? prev : prev.filter((_, i) => i !== index))
     }, [])
 
     const handleSubmit = async () => {
-        if (!clientId) {
-            alert('Veuillez sélectionner un client.')
-            return
-        }
-
-        if (items.every((i) => !i.description.trim())) {
-            alert('Veuillez ajouter au moins un article.')
-            return
-        }
+        if (!clientId) return alert('Sélectionnez un client.')
+        if (items.every(i => !i.description.trim())) return alert('Ajoutez au moins un article.')
 
         setLoading(true)
 
@@ -128,46 +112,39 @@ export default function QuoteBuilder() {
     }
 
     const formatCurrency = (value: number) =>
-        value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DH'
+        value.toLocaleString('fr-FR', { minimumFractionDigits: 2 }) + ' DH'
 
     return (
         <div className="max-w-5xl mx-auto bg-zinc-900/60 backdrop-blur-sm p-8 rounded-2xl border border-zinc-800 shadow-xl">
             <h1 className="text-2xl font-bold text-white mb-8">Nouveau Devis</h1>
 
-            {/* Header Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-bold uppercase text-zinc-500 tracking-wider">
-                        Client
-                    </label>
+                    <label className="block text-[10px] font-bold uppercase text-zinc-500 tracking-wider">Client</label>
                     <select
                         value={clientId}
                         onChange={(e) => setClientId(e.target.value)}
-                        className="w-full bg-black/50 border border-zinc-700 rounded-lg p-3 text-white outline-none focus:border-yellow-500/50 transition-colors"
+                        className="w-full bg-black/50 border border-zinc-700 rounded-lg p-3 text-white outline-none focus:border-yellow-500/50"
                     >
                         <option value="">Sélectionner un client</option>
                         {clients.map((c) => (
-                            <option key={c.id} value={c.id}>
-                                {c.name}
-                            </option>
+                            <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                     </select>
                 </div>
 
                 <div className="space-y-2">
-                    <label className="block text-[10px] font-bold uppercase text-zinc-500 tracking-wider">
-                        Date
-                    </label>
+                    <label className="block text-[10px] font-bold uppercase text-zinc-500 tracking-wider">Date</label>
                     <input
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="w-full bg-black/50 border border-zinc-700 rounded-lg p-3 text-white outline-none focus:border-yellow-500/50 transition-colors"
+                        className="w-full bg-black/50 border border-zinc-700 rounded-lg p-3 text-white outline-none focus:border-yellow-500/50"
                     />
                 </div>
             </div>
 
-            {/* Items Table */}
+            {/* Items Table - NO UNIT COLUMN */}
             <div className="overflow-x-auto mb-6">
                 <table className="w-full text-left">
                     <thead>
@@ -187,14 +164,13 @@ export default function QuoteBuilder() {
                                         value={item.description}
                                         onChange={(e) => updateItem(i, 'description', e.target.value)}
                                         className="w-full bg-transparent outline-none text-white placeholder:text-zinc-600"
-                                        placeholder="Description du service..."
+                                        placeholder="Description..."
                                     />
                                 </td>
                                 <td className="py-4">
                                     <input
                                         type="number"
                                         min="0"
-                                        step="1"
                                         value={item.quantity}
                                         onChange={(e) => updateItem(i, 'quantity', e.target.value)}
                                         className="w-full bg-transparent outline-none text-white text-center font-mono"
@@ -210,15 +186,12 @@ export default function QuoteBuilder() {
                                         className="w-full bg-transparent outline-none text-white text-center font-mono"
                                     />
                                 </td>
-                                <td className="py-4 text-right font-mono text-white">
-                                    {formatCurrency(item.total)}
-                                </td>
+                                <td className="py-4 text-right font-mono text-white">{formatCurrency(item.total)}</td>
                                 <td className="py-4 text-center">
                                     <button
                                         type="button"
                                         onClick={() => removeItem(i)}
                                         className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 transition-opacity"
-                                        aria-label="Supprimer ligne"
                                     >
                                         <Trash2 size={16} />
                                     </button>
@@ -229,7 +202,6 @@ export default function QuoteBuilder() {
                 </table>
             </div>
 
-            {/* Add Item Button */}
             <button
                 type="button"
                 onClick={addItem}
@@ -239,30 +211,26 @@ export default function QuoteBuilder() {
                 <span>Ajouter une ligne</span>
             </button>
 
-            {/* Totals Section */}
+            {/* Totals: Subtotal -> Discount -> Net HT -> TVA -> Total TTC */}
             <div className="flex flex-col items-end pt-6 border-t border-zinc-700">
                 <div className="w-72 space-y-3">
-                    {/* Subtotal */}
                     <div className="flex justify-between text-sm text-zinc-400">
                         <span>Total HT</span>
                         <span className="text-white font-mono">{formatCurrency(totals.subtotal)}</span>
                     </div>
 
-                    {/* Discount */}
                     <div className="flex justify-between items-center text-sm">
                         <span className="text-blue-400">Remise (%)</span>
                         <input
                             type="number"
                             min="0"
                             max="100"
-                            step="0.5"
                             value={discountRate}
                             onChange={(e) => setDiscountRate(parseFloat(e.target.value) || 0)}
-                            className="w-16 bg-zinc-800 border border-zinc-700 text-center text-white text-sm rounded px-2 py-1 font-mono focus:border-blue-500 outline-none"
+                            className="w-16 bg-zinc-800 border border-zinc-700 text-center text-white text-sm rounded px-2 py-1 font-mono"
                         />
                     </div>
 
-                    {/* Discount Amount (shown if > 0) */}
                     {discountRate > 0 && (
                         <div className="flex justify-between text-sm text-zinc-500">
                             <span>Montant Remise</span>
@@ -270,19 +238,16 @@ export default function QuoteBuilder() {
                         </div>
                     )}
 
-                    {/* Net HT */}
                     <div className="flex justify-between text-sm text-zinc-400">
                         <span>Net HT</span>
                         <span className="text-white font-mono">{formatCurrency(totals.netHT)}</span>
                     </div>
 
-                    {/* TVA */}
                     <div className="flex justify-between text-sm text-zinc-400">
                         <span>TVA (20%)</span>
                         <span className="text-white font-mono">{formatCurrency(totals.tva)}</span>
                     </div>
 
-                    {/* Total TTC */}
                     <div className="flex justify-between text-xl text-[#EAB308] font-bold pt-3 border-t border-zinc-700">
                         <span>Total TTC</span>
                         <span className="font-mono">{formatCurrency(totals.totalTTC)}</span>
@@ -290,14 +255,13 @@ export default function QuoteBuilder() {
                 </div>
             </div>
 
-            {/* Submit Button */}
             <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="w-full mt-10 bg-gradient-to-r from-yellow-500 to-amber-500 text-black font-black py-4 rounded-xl hover:from-yellow-400 hover:to-amber-400 uppercase text-sm tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-yellow-500/20"
+                className="w-full mt-10 bg-gradient-to-r from-yellow-500 to-amber-500 text-black font-black py-4 rounded-xl hover:from-yellow-400 hover:to-amber-400 uppercase text-sm tracking-widest transition-all disabled:opacity-50 shadow-lg shadow-yellow-500/20"
             >
-                {loading ? 'Création en cours...' : 'CRÉER LE DEVIS'}
+                {loading ? 'Création...' : 'CRÉER LE DEVIS'}
             </button>
         </div>
     )
