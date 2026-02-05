@@ -13,9 +13,14 @@ export default function QuoteBuilder() {
     const [clientId, setClientId] = useState('')
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [discountRate, setDiscountRate] = useState(0)
-    const [items, setItems] = useState([{ description: '', quantity: 1, unit_price: 0, total: 0, unit: 'U' }])
 
-    const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+    // ✅ "unit" property removed from initial state
+    const [items, setItems] = useState([{ description: '', quantity: 1, unit_price: 0, total: 0 }])
+
+    const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
     useEffect(() => {
         const fetchClients = async () => {
@@ -29,7 +34,7 @@ export default function QuoteBuilder() {
         const subtotal = items.reduce((sum, item) => sum + item.total, 0)
         const discountAmount = subtotal * (discountRate / 100)
         const netHT = subtotal - discountAmount
-        const tva = netHT * 0.20 // Standard 20% 
+        const tva = netHT * 0.20
         return { subtotal, discountAmount, netHT, tva, totalTTC: netHT + tva }
     }, [items, discountRate])
 
@@ -68,7 +73,6 @@ export default function QuoteBuilder() {
         <div className="max-w-5xl mx-auto bg-zinc-900/50 p-8 rounded-2xl border border-zinc-800">
             <h1 className="text-2xl font-bold text-white mb-8">Nouveau Devis</h1>
 
-            {/* Header */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                 <div>
                     <label className="text-[10px] font-bold uppercase text-zinc-500 mb-2">Client</label>
@@ -83,29 +87,28 @@ export default function QuoteBuilder() {
                 </div>
             </div>
 
-            {/* Items Table */}
+            {/* Items Table - "Unité" Column Removed */}
             <table className="w-full text-left mb-6">
                 <thead>
-                    <tr className="text-zinc-500 text-[10px] uppercase border-b border-zinc-800">
-                        <th className="pb-4">Description</th>
-                        <th className="pb-4 text-center">Qté</th>
-                        <th className="pb-4 text-center">Prix Unit</th>
-                        <th className="pb-4 text-right">Total HT</th>
+                    <tr className="text-zinc-500 text-[10px] uppercase border-b border-zinc-800 tracking-widest">
+                        <th className="pb-4 w-[50%]">Description des travaux</th>
+                        <th className="pb-4 text-center w-[15%]">Qté</th>
+                        <th className="pb-4 text-center w-[15%]">Prix Unit</th>
+                        <th className="pb-4 text-right w-[20%]">Total HT</th>
                     </tr>
                 </thead>
                 <tbody className="text-sm">
                     {items.map((item, i) => (
                         <tr key={i} className="border-b border-zinc-800/30">
                             <td className="py-4"><input value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)} className="w-full bg-transparent outline-none text-white" placeholder="Description..." /></td>
-                            <td className="py-4"><input type="number" value={item.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-white text-center" /></td>
-                            <td className="py-4"><input type="number" value={item.unit_price} onChange={(e) => updateItem(i, 'unit_price', e.target.value)} className="w-full bg-transparent outline-none text-white text-center" /></td>
+                            <td className="py-4"><input type="number" value={item.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-white text-center font-mono" /></td>
+                            <td className="py-4"><input type="number" value={item.unit_price} onChange={(e) => updateItem(i, 'unit_price', e.target.value)} className="w-full bg-transparent outline-none text-white text-center font-mono" /></td>
                             <td className="py-4 text-right font-mono text-white">{item.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
 
-            {/* Calculations Footer matching Invoice  */}
             <div className="flex flex-col items-end pt-10 border-t border-zinc-800">
                 <div className="w-full max-w-xs space-y-3">
                     <div className="flex justify-between text-xs text-zinc-500 uppercase">
@@ -125,13 +128,13 @@ export default function QuoteBuilder() {
                         <span className="text-white font-mono">{totals.tva.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</span>
                     </div>
                     <div className="flex flex-col items-end pt-4">
-                        <div className="text-[10px] text-yellow-500/50 uppercase font-black mb-1">Total à payer</div>
+                        <div className="text-[10px] text-yellow-500/50 uppercase font-black mb-1 tracking-widest">Total à payer</div>
                         <div className="text-4xl text-[#EAB308] font-black">{totals.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} <span className="text-lg">DH</span></div>
                     </div>
                 </div>
             </div>
 
-            <button onClick={handleSubmit} disabled={loading} className="w-full mt-10 bg-[#EAB308] text-black font-black py-4 rounded-xl hover:bg-yellow-500 transition-all uppercase text-sm">
+            <button onClick={handleSubmit} disabled={loading} className="w-full mt-10 bg-[#EAB308] text-black font-black py-4 rounded-xl hover:bg-yellow-500 transition-all uppercase text-sm tracking-widest">
                 {loading ? 'Génération...' : 'Créer le Devis'}
             </button>
         </div>
