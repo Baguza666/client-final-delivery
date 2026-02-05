@@ -14,27 +14,21 @@ export async function createQuote(formData: FormData) {
         getAll() { return cookieStore.getAll() },
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch { /* Action-side cookie setting is handled by Next.js */ }
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+          } catch { }
         },
       },
     }
   )
 
-  // 1. STRENGTHENED AUTH: Try getUser, then fallback to getSession
-  let { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    const { data: { session } } = await supabase.auth.getSession()
-    user = session?.user ?? null
+  // 1. Force Check User
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: 'Session expirée. Veuillez rafraîchir la page.' }
   }
 
-  if (!user) {
-    return { success: false, error: 'Session introuvable sur le serveur. Veuillez vous déconnecter et vous reconnecter.' }
-  }
-
-  // 2. Fetch Workspace (Check for 'website' column handled by UI hardcoding elsewhere)
+  // 2. Get Workspace
   const { data: workspace } = await supabase
     .from('workspaces')
     .select('id')
@@ -46,30 +40,26 @@ export async function createQuote(formData: FormData) {
   try {
     const items = JSON.parse(formData.get('items') as string)
 
-    // 3. Generate Quote Number
+    // 3. Generate Number
     const { count } = await supabase.from('quotes').select('*', { count: 'exact', head: true })
     const number = `DEV-${new Date().getFullYear()}-${(count || 0) + 1}`
 
     // 4. Insert Quote
-    const { data: quote, error: quoteError } = await supabase
-      .from('quotes')
-      .insert({
-        workspace_id: workspace.id,
-        client_id: formData.get('client_id'),
-        number,
-        date: formData.get('date'),
-        status: 'draft',
-        subtotal: Number(formData.get('subtotal')),
-        discount_rate: Number(formData.get('discount_rate')),
-        tax_rate: 20,
-        total: Number(formData.get('total_ttc'))
-      })
-      .select()
-      .single()
+    const { data: quote, error: quoteError } = await supabase.from('quotes').insert({
+      workspace_id: workspace.id,
+      client_id: formData.get('client_id'),
+      number,
+      date: formData.get('date'),
+      status: 'draft',
+      subtotal: Number(formData.get('subtotal')),
+      discount_rate: Number(formData.get('discount_rate')),
+      tax_rate: 20,
+      total: Number(formData.get('total_ttc'))
+    }).select().single()
 
     if (quoteError) throw quoteError
 
-    // 5. Insert Items (Unit field removed)
+    // 5. Insert Items (NO UNIT FIELD)
     const { error: itemsError } = await supabase.from('quote_items').insert(
       items.map((item: any) => ({
         quote_id: quote.id,
@@ -86,6 +76,6 @@ export async function createQuote(formData: FormData) {
     return { success: true, id: quote.id as string }
 
   } catch (err: any) {
-    return { success: false, error: `Erreur: ${err.message}` }
+    return { success: false, error: err.message }
   }
 }

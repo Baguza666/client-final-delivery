@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
-import { createQuote } from './QuoteActions'
+import { createQuote } from './QuoteActions' // Ensure file is named QuoteActions.tsx
 
 export default function QuoteBuilder() {
     const router = useRouter()
@@ -14,13 +14,10 @@ export default function QuoteBuilder() {
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [discountRate, setDiscountRate] = useState(0)
 
-    // Unity/Unit removed from item state
+    // NO UNIT in state
     const [items, setItems] = useState([{ description: '', quantity: 1, unit_price: 0, total: 0 }])
 
-    const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
     useEffect(() => {
         const fetchClients = async () => {
@@ -48,7 +45,7 @@ export default function QuoteBuilder() {
     }
 
     const handleSubmit = async () => {
-        if (!clientId) return alert("Veuillez sélectionner un client.")
+        if (!clientId) return alert("Sélectionnez un client.")
         setLoading(true)
 
         const formData = new FormData()
@@ -64,7 +61,7 @@ export default function QuoteBuilder() {
         if (result.success === true) {
             router.push(`/quotes/${result.id}`)
         } else {
-            alert(`Erreur: ${result.error}`)
+            alert("Erreur: " + result.error)
         }
         setLoading(false)
     }
@@ -82,16 +79,15 @@ export default function QuoteBuilder() {
                     </select>
                 </div>
                 <div>
-                    <label className="text-[10px] font-bold uppercase text-zinc-500 mb-2">Date d'émission</label>
+                    <label className="text-[10px] font-bold uppercase text-zinc-500 mb-2">Date</label>
                     <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white outline-none" />
                 </div>
             </div>
 
-            {/* Unity Column Removed */}
             <table className="w-full text-left mb-6">
                 <thead>
                     <tr className="text-zinc-500 text-[10px] uppercase border-b border-zinc-800 tracking-widest">
-                        <th className="pb-4 w-[50%]">Description des travaux</th>
+                        <th className="pb-4 w-[50%]">Description</th>
                         <th className="pb-4 text-center w-[15%]">Qté</th>
                         <th className="pb-4 text-center w-[15%]">Prix Unit</th>
                         <th className="pb-4 text-right w-[20%]">Total HT</th>
@@ -100,43 +96,26 @@ export default function QuoteBuilder() {
                 <tbody className="text-sm">
                     {items.map((item, i) => (
                         <tr key={i} className="border-b border-zinc-800/30">
-                            <td className="py-4"><input value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)} className="w-full bg-transparent outline-none text-white" placeholder="Description..." /></td>
+                            <td className="py-4"><input value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)} className="w-full bg-transparent outline-none text-white" placeholder="Service..." /></td>
                             <td className="py-4"><input type="number" value={item.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)} className="w-full bg-transparent outline-none text-white text-center font-mono" /></td>
                             <td className="py-4"><input type="number" value={item.unit_price} onChange={(e) => updateItem(i, 'unit_price', e.target.value)} className="w-full bg-transparent outline-none text-white text-center font-mono" /></td>
-                            <td className="py-4 text-right font-mono text-white">{item.total.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                            <td className="py-4 text-right font-mono text-white">{item.total.toLocaleString('fr-FR')} DH</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
 
-            {/* Calculations Area */}
-            <div className="flex flex-col items-end pt-10 border-t border-zinc-800">
-                <div className="w-full max-w-xs space-y-3">
-                    <div className="flex justify-between text-xs text-zinc-500 uppercase">
-                        <span>Total HT Brut</span>
-                        <span className="text-white font-mono">{totals.subtotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</span>
-                    </div>
-                    <div className="flex justify-between items-center py-2 bg-blue-500/5 px-2 rounded border border-blue-500/10">
-                        <span className="text-blue-400 font-bold uppercase text-[10px]">Remise commerciale (%)</span>
-                        <input type="number" value={discountRate} onChange={(e) => setDiscountRate(Number(e.target.value))} className="w-12 bg-zinc-800 border border-zinc-700 rounded py-1 text-center text-white outline-none text-xs" />
-                    </div>
-                    <div className="flex justify-between text-xs text-white font-bold border-t border-zinc-800 pt-3">
-                        <span>Net HT</span>
-                        <span className="font-mono">{totals.netHT.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-zinc-500 uppercase">
-                        <span>TVA (20%)</span>
-                        <span className="text-white font-mono">{totals.tva.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</span>
-                    </div>
-                    <div className="flex flex-col items-end pt-4">
-                        <div className="text-[10px] text-yellow-500/50 uppercase font-black mb-1">Total à payer</div>
-                        <div className="text-4xl text-[#EAB308] font-black">{totals.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} <span className="text-lg">DH</span></div>
-                    </div>
+            <div className="flex flex-col items-end pt-6 border-t border-zinc-800">
+                <div className="w-64 space-y-2">
+                    <div className="flex justify-between text-xs text-zinc-500 uppercase"><span>Total HT</span> <span className="text-white">{totals.subtotal.toFixed(2)} DH</span></div>
+                    <div className="flex justify-between items-center"><span className="text-blue-500 text-[10px] font-bold uppercase">Remise (%)</span> <input type="number" value={discountRate} onChange={(e) => setDiscountRate(Number(e.target.value))} className="w-12 bg-zinc-800 text-center text-white text-xs rounded" /></div>
+                    <div className="flex justify-between text-xs text-zinc-500 uppercase"><span>TVA (20%)</span> <span className="text-white">{totals.tva.toFixed(2)} DH</span></div>
+                    <div className="flex justify-between text-xl text-[#EAB308] font-bold pt-2"><span>Total TTC</span> <span>{totals.totalTTC.toFixed(2)} DH</span></div>
                 </div>
             </div>
 
-            <button onClick={handleSubmit} disabled={loading} className="w-full mt-10 bg-[#EAB308] text-black font-black py-4 rounded-xl hover:bg-yellow-500 transition-all uppercase text-sm tracking-widest">
-                {loading ? 'Génération...' : 'Créer le Devis'}
+            <button onClick={handleSubmit} disabled={loading} className="w-full mt-10 bg-[#EAB308] text-black font-black py-4 rounded-xl hover:bg-yellow-500 uppercase text-sm tracking-widest">
+                {loading ? '...' : 'CRÉER LE DEVIS'}
             </button>
         </div>
     )
