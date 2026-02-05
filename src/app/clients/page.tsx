@@ -16,7 +16,7 @@ export default async function ClientsPage() {
 
     // 2. Check Auth
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) redirect("/");
+    if (!user) redirect("/login");
 
     // 3. Fetch Clients (Filtered by Owner)
     const { data: clients, error } = await supabase

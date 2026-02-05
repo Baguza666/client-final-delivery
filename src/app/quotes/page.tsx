@@ -126,8 +126,8 @@ export default function QuotesPage() {
                                         {new Date(quote.created_at).toLocaleDateString('fr-FR')}
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-zinc-300">
-                                        {/* ✅ FIXED: Use total_amount instead of total_ttc */}
-                                        {new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD' }).format(quote.total_amount || 0)}
+                                        {/* ✅ FIXED: Use total with fallback to subtotal * 1.2 */}
+                                        {new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD' }).format(quote.total || (quote.subtotal * 1.2) || 0)}
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${getStatusColor(quote.status)}`}>
