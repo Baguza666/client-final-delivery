@@ -1,20 +1,13 @@
-import { type NextRequest } from 'next/server'
-import { updateSession } from '@/utils/supabase/middleware'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-    return await updateSession(request)
+export function middleware(request: NextRequest) {
+    // 🟢 ALLOW EVERYTHING: No checks, no redirects, just pass through.
+    return NextResponse.next()
 }
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths EXCEPT:
-         * - api routes (API endpoints)
-         * - _next/static (static files)
-         * - _next/image (image optimization)
-         * - favicon.ico
-         * - Static assets
-         */
-        '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
