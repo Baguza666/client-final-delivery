@@ -3,12 +3,9 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url)
+    const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
     const next = searchParams.get('next') ?? '/'
-
-    // 👇 YOUR PRODUCTION DOMAIN
-    const host = 'https://app.imsalservices.ma'
 
     if (code) {
         const cookieStore = await cookies()
@@ -17,9 +14,7 @@ export async function GET(request: Request) {
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             {
                 cookies: {
-                    getAll() {
-                        return cookieStore.getAll()
-                    },
+                    getAll() { return cookieStore.getAll() },
                     setAll(cookiesToSet) {
                         try {
                             cookiesToSet.forEach(({ name, value, options }) =>
@@ -34,11 +29,11 @@ export async function GET(request: Request) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
 
         if (!error) {
-            // ✅ SUCCESS: Redirect explicitly to the custom domain
-            return NextResponse.redirect(`${host}${next}`)
+            // ✅ DYNAMIC REDIRECT: Sends you back to client-final-delivery.vercel.app
+            return NextResponse.redirect(`${origin}${next}`)
         }
     }
 
-    // ❌ FAILURE: Redirect explicitly to login on custom domain
-    return NextResponse.redirect(`${host}/login?error=callback_failed`)
+    // Return to login with error
+    return NextResponse.redirect(`${origin}/login?error=callback_failed`)
 }
