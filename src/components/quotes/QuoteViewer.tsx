@@ -152,16 +152,10 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                 {/* CONTENT PADDING */}
                 <div className="p-[10mm] pb-8 flex-1 flex flex-col relative z-10">
 
-                    {/* 1. Header (Compact) */}
+                    {/* 1. Header (Compact) - HARDCODED LOGO */}
                     <div className="flex justify-between items-start mb-4">
                         <div className="w-1/2">
-                            {ws?.logo_url ? (
-                                <div className="relative w-64 h-24">
-                                    <Image src={ws.logo_url} alt="Logo" fill className="object-contain object-left" unoptimized />
-                                </div>
-                            ) : (
-                                <h1 className="text-2xl font-bold uppercase tracking-tight">{ws?.name}</h1>
-                            )}
+                            <img src="/logo.png" alt="IMSAL Services" width={150} className="object-contain" />
                         </div>
                         <div className="w-1/2 text-right">
                             <h1 className="text-5xl font-[800] tracking-tighter text-zinc-900 uppercase">Devis</h1>
@@ -169,17 +163,16 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                         </div>
                     </div>
 
-                    {/* 2. Info (Compact) */}
+                    {/* 2. Info (Compact) - HARDCODED COMPANY INFO */}
                     <div className="flex justify-between items-start mb-6 gap-12">
-                        {/* Sender */}
+                        {/* Sender - HARDCODED */}
                         <div className="w-1/2 text-sm leading-relaxed">
                             <h3 className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2 border-b border-zinc-200 pb-1 w-20">Émetteur</h3>
-                            <p className="font-bold text-zinc-900 text-base">{ws?.name}</p>
-                            <p className="text-zinc-600">{ws?.address}</p>
-                            <p className="text-zinc-600">{ws?.city}, {ws?.country}</p>
+                            <p className="font-bold text-zinc-900 text-base">IMSAL SERVICES</p>
+                            <p className="text-zinc-600">7 Lotis Najmat El Janoub</p>
+                            <p className="text-zinc-600">El Jadida, Maroc</p>
                             <div className="mt-2 pt-2 border-t border-zinc-100 text-xs text-zinc-600 space-y-1">
-                                {ws?.phone && <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[12px]">call</span> {ws.phone}</p>}
-                                {ws?.email && <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[12px]">mail</span> {ws.email}</p>}
+                                <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[12px]">call</span> +212(0)6 61 43 52 83</p>
                                 <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[12px]">mail</span> i.assal@imsalservices.com</p>
                             </div>
                         </div>
@@ -286,18 +279,17 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                         </div>
                     </div>
 
-                    {/* 6. Footer */}
+                    {/* 6. Footer - HARDCODED LEGAL IDS */}
                     <div className="mt-auto border-t border-zinc-200 pt-4 text-[10px] text-zinc-500 uppercase tracking-widest leading-relaxed">
                         <div className="flex justify-between items-end">
                             <div className="w-2/3">
-                                <p className="font-bold text-zinc-900 mb-1 text-xs">{ws?.name} | {ws?.address}, {ws?.city}</p>
-                                <p className="text-zinc-500 normal-case tracking-normal mb-1">Tél: {ws?.phone || '-'} • Email: i.assal@imsalservices.com • Web: imsalservices.ma</p>
-                                <p className="text-zinc-400 mb-0.5">ICE: {ws?.ice || '-'} • RC: {ws?.rc || '-'}</p>
-                                <p className="text-zinc-400">IF: {ws?.tax_id || '-'} • CNSS: 5249290 • TP: 43003134</p>
+                                <p className="font-bold text-zinc-900 mb-1 text-xs">IMSAL SERVICES | 7 Lotis Najmat El Janoub, El Jadida</p>
+                                <p className="text-zinc-500 normal-case tracking-normal mb-1">Tél: +212(0)6 61 43 52 83 • Email: i.assal@imsalservices.com • Web: imsalservices.ma</p>
+                                <p className="text-zinc-400 font-mono">ICE: 002972127000089 | RC: 19215 | IF: 000081196000005 | CNSS: 5249290 | TP: 43003134</p>
                             </div>
                             <div className="text-right">
                                 <p className="font-bold text-zinc-900 mb-1">Coordonnées Bancaires</p>
-                                <p>Banque: {ws?.bank_name || 'BANK OF AFRICA'}</p>
+                                <p>Banque: BANK OF AFRICA</p>
                                 <p>RIB: <span className="font-mono font-bold text-zinc-800">011170000008210000137110</span></p>
                             </div>
                         </div>
