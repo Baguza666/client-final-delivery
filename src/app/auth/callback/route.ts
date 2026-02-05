@@ -3,9 +3,15 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function GET(request: Request) {
-    const { searchParams, origin } = new URL(request.url)
-    const code = searchParams.get('code')
-    const next = searchParams.get('next') ?? '/'
+    const requestUrl = new URL(request.url)
+    const code = requestUrl.searchParams.get('code')
+    const next = requestUrl.searchParams.get('next') ?? '/'
+
+    // Debug logging
+    console.log('=== AUTH CALLBACK ===')
+    console.log('Code received:', code ? 'YES' : 'NO')
+    console.log('Next path:', next)
+    console.log('Request URL:', requestUrl.toString())
 
     if (code) {
         const cookieStore = await cookies()
@@ -20,34 +26,52 @@ export async function GET(request: Request) {
                     },
                     setAll(cookiesToSet) {
                         try {
-                            cookiesToSet.forEach(({ name, value, options }) =>
+                            cookiesToSet.forEach(({ name, value, options }) => {
+                                console.log('Setting cookie:', name)
                                 cookieStore.set(name, value, options)
-                            )
-                        } catch {
-                            // Route Handler cookie error - ignorable
+                            })
+                        } catch (error) {
+                            console.error('Cookie set error:', error)
                         }
                     },
                 },
             }
         )
 
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
+        console.log('Exchange result:', error ? `ERROR: ${error.message}` : 'SUCCESS')
+        console.log('Session user:', data?.user?.email ?? 'none')
 
         if (!error) {
-            // Use x-forwarded-host for Vercel deployments
+            // Determine correct redirect URL
+            const origin = requestUrl.origin
             const forwardedHost = request.headers.get('x-forwarded-host')
-            const isLocalEnv = process.env.NODE_ENV === 'development'
+            const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
 
-            if (isLocalEnv) {
-                return NextResponse.redirect(`${origin}${next}`)
+            let redirectUrl: string
+
+            if (process.env.NODE_ENV === 'development') {
+                redirectUrl = `${origin}${next}`
             } else if (forwardedHost) {
-                return NextResponse.redirect(`https://${forwardedHost}${next}`)
+                // Production on Vercel
+                redirectUrl = `${forwardedProto}://${forwardedHost}${next}`
             } else {
-                return NextResponse.redirect(`${origin}${next}`)
+                redirectUrl = `${origin}${next}`
             }
+
+            console.log('Redirecting to:', redirectUrl)
+
+            return NextResponse.redirect(redirectUrl)
+        } else {
+            console.error('Auth exchange failed:', error.message)
         }
+    } else {
+        console.log('No code in URL')
     }
 
-    // Error: redirect to login
-    return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
+    // Fallback: redirect to login with error
+    const errorUrl = new URL('/login', requestUrl.origin)
+    errorUrl.searchParams.set('error', 'callback_failed')
+    return NextResponse.redirect(errorUrl.toString())
 }

@@ -9,12 +9,12 @@ export const config = {
     matcher: [
         /*
          * Match all request paths EXCEPT:
-         * - /auth/callback (OAuth return route - CRITICAL!)
+         * - api routes (API endpoints)
          * - _next/static (static files)
          * - _next/image (image optimization)
          * - favicon.ico
          * - Static assets
          */
-        '/((?!auth/callback|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
