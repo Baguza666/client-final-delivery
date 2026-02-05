@@ -14,7 +14,7 @@ export default function QuoteBuilder() {
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [discountRate, setDiscountRate] = useState(0)
 
-    // ✅ "unit" property removed from initial state
+    // Unity/Unit removed from item state
     const [items, setItems] = useState([{ description: '', quantity: 1, unit_price: 0, total: 0 }])
 
     const supabase = createBrowserClient(
@@ -87,7 +87,7 @@ export default function QuoteBuilder() {
                 </div>
             </div>
 
-            {/* Items Table - "Unité" Column Removed */}
+            {/* Unity Column Removed */}
             <table className="w-full text-left mb-6">
                 <thead>
                     <tr className="text-zinc-500 text-[10px] uppercase border-b border-zinc-800 tracking-widest">
@@ -109,6 +109,7 @@ export default function QuoteBuilder() {
                 </tbody>
             </table>
 
+            {/* Calculations Area */}
             <div className="flex flex-col items-end pt-10 border-t border-zinc-800">
                 <div className="w-full max-w-xs space-y-3">
                     <div className="flex justify-between text-xs text-zinc-500 uppercase">
@@ -128,7 +129,7 @@ export default function QuoteBuilder() {
                         <span className="text-white font-mono">{totals.tva.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</span>
                     </div>
                     <div className="flex flex-col items-end pt-4">
-                        <div className="text-[10px] text-yellow-500/50 uppercase font-black mb-1 tracking-widest">Total à payer</div>
+                        <div className="text-[10px] text-yellow-500/50 uppercase font-black mb-1">Total à payer</div>
                         <div className="text-4xl text-[#EAB308] font-black">{totals.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} <span className="text-lg">DH</span></div>
                     </div>
                 </div>

@@ -6,38 +6,35 @@ import { revalidatePath } from 'next/cache'
 
 export async function createQuote(formData: FormData) {
   const cookieStore = await cookies()
-
-  // 1. Initialize Supabase with direct cookie access
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
+        getAll() { return cookieStore.getAll() },
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {
-            // The setAll can be ignored if called from a Server Action
-          }
+          } catch { /* Action-side cookie setting is handled by Next.js */ }
         },
       },
     }
   )
 
-  // 2. Auth Check - Using getUser() as it is the most reliable for Server Actions
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    console.error("Auth Error:", authError?.message)
-    return { success: false, error: 'Session introuvable sur le serveur. Veuillez rafraîchir la page et réessayer.' }
+  // 1. STRENGTHENED AUTH: Try getUser, then fallback to getSession
+  let { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    const { data: { session } } = await supabase.auth.getSession()
+    user = session?.user ?? null
   }
 
-  // 3. Fetch Workspace
+  if (!user) {
+    return { success: false, error: 'Session introuvable sur le serveur. Veuillez vous déconnecter et vous reconnecter.' }
+  }
+
+  // 2. Fetch Workspace (Check for 'website' column handled by UI hardcoding elsewhere)
   const { data: workspace } = await supabase
     .from('workspaces')
     .select('id')
@@ -49,11 +46,11 @@ export async function createQuote(formData: FormData) {
   try {
     const items = JSON.parse(formData.get('items') as string)
 
-    // 4. Generate Devis Number
+    // 3. Generate Quote Number
     const { count } = await supabase.from('quotes').select('*', { count: 'exact', head: true })
     const number = `DEV-${new Date().getFullYear()}-${(count || 0) + 1}`
 
-    // 5. Insert Quote
+    // 4. Insert Quote
     const { data: quote, error: quoteError } = await supabase
       .from('quotes')
       .insert({
@@ -72,7 +69,7 @@ export async function createQuote(formData: FormData) {
 
     if (quoteError) throw quoteError
 
-    // 6. Insert Quote Items (Removed Unit field as requested)
+    // 5. Insert Items (Unit field removed)
     const { error: itemsError } = await supabase.from('quote_items').insert(
       items.map((item: any) => ({
         quote_id: quote.id,
@@ -80,7 +77,6 @@ export async function createQuote(formData: FormData) {
         quantity: item.quantity,
         unit_price: item.unit_price,
         total: item.total
-        // unit is removed here
       }))
     )
 
@@ -90,6 +86,6 @@ export async function createQuote(formData: FormData) {
     return { success: true, id: quote.id as string }
 
   } catch (err: any) {
-    return { success: false, error: `Erreur DB: ${err.message}` }
+    return { success: false, error: `Erreur: ${err.message}` }
   }
 }
