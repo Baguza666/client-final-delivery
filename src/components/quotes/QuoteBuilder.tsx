@@ -122,95 +122,93 @@ export default function QuoteBuilder() {
     return (
         <div className="min-h-screen bg-black pl-72 text-white font-sans selection:bg-[#EAB308] selection:text-black">
 
-            {/* WRAPPER: Limits width slightly to keep eye travel reasonable, but spacious */}
-            <div className="max-w-[1600px] mx-auto p-8 space-y-6">
+            {/* WRAPPER: Max width removed, now using 95% width for "Ultrawide" feel */}
+            <div className="w-[95%] max-w-[1920px] mx-auto p-8 space-y-8">
 
-                {/* --- 1. COMPACT HEADER (Recovered Real Estate) --- */}
-                <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+                {/* --- 1. HEADER --- */}
+                <div className="flex items-center justify-between pb-4 border-b border-zinc-800/50">
                     <div className="flex items-center gap-4">
                         <Link href="/quotes" className="p-2 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800">
-                            <ArrowLeft size={18} />
+                            <ArrowLeft size={20} />
                         </Link>
                         <div>
-                            <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                                <Receipt size={20} className="text-[#EAB308]" />
+                            <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+                                <Receipt size={24} className="text-[#EAB308]" />
                                 Nouveau Devis
                             </h1>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <span className="text-xs font-medium text-zinc-500 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800/50">
+                        <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 bg-zinc-900/50 px-3 py-1.5 rounded border border-zinc-800/50">
                             Brouillon
                         </span>
                     </div>
                 </div>
 
-                {/* --- 2. CONFIGURATION BAR (Client & Date) --- */}
-                {/* Grouped tightly to respect Law of Proximity */}
-                <div className="bg-[#111] border border-zinc-800 rounded-xl p-5 shadow-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-
-                        {/* Client Select (Wider) */}
+                {/* --- 2. CONFIGURATION BAR --- */}
+                <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-6 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                        {/* Client Select */}
                         <div className="md:col-span-8 space-y-2">
-                            <label className="text-sm font-medium text-zinc-400 ml-1">Client</label>
-                            <div className="relative">
+                            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Client</label>
+                            <div className="relative group">
                                 <select
                                     value={clientId}
                                     onChange={(e) => setClientId(e.target.value)}
-                                    className="w-full h-11 bg-zinc-900 border border-zinc-700 rounded-lg px-4 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] appearance-none transition-all text-sm cursor-pointer hover:bg-zinc-800 hover:border-zinc-600"
+                                    className="w-full h-12 bg-zinc-900 border border-zinc-800 rounded-lg px-4 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] appearance-none transition-all text-sm font-medium cursor-pointer hover:bg-zinc-800 hover:border-zinc-700"
                                 >
                                     <option value="">-- Sélectionner un client --</option>
                                     {clients.map((c) => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
                                 </select>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none group-hover:text-white" size={16} />
                             </div>
                         </div>
 
-                        {/* Date Picker (Narrower) */}
+                        {/* Date Picker */}
                         <div className="md:col-span-4 space-y-2">
-                            <label className="text-sm font-medium text-zinc-400 ml-1">Date d'émission</label>
+                            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Date d'émission</label>
                             <div className="relative">
                                 <input
                                     type="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full h-11 bg-zinc-900 border border-zinc-700 rounded-lg px-4 pl-10 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm hover:bg-zinc-800 hover:border-zinc-600"
+                                    className="w-full h-12 bg-zinc-900 border border-zinc-800 rounded-lg px-4 pl-12 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm font-medium hover:bg-zinc-800 hover:border-zinc-700"
                                 />
-                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
+                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={18} />
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* --- 3. WORKSPACE GRID --- */}
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
 
                     {/* LEFT: ITEMS TABLE (8 Columns) */}
-                    <div className="xl:col-span-8 bg-[#111] border border-zinc-800 rounded-xl shadow-sm flex flex-col overflow-hidden">
+                    <div className="xl:col-span-8 bg-[#0A0A0A] border border-zinc-800 rounded-xl shadow-sm flex flex-col overflow-hidden min-h-[500px]">
 
                         {/* Header Row */}
-                        <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-zinc-900 border-b border-zinc-800 text-xs font-semibold text-zinc-400">
-                            <div className="col-span-6">Description</div>
+                        <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-zinc-900/50 border-b border-zinc-800 text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
+                            <div className="col-span-6">Description / Service</div>
                             <div className="col-span-1 text-center">Unité</div>
                             <div className="col-span-1 text-center">Qté</div>
-                            <div className="col-span-2 text-right">Prix Unitaire</div>
+                            <div className="col-span-2 text-right">Prix Uni.</div>
                             <div className="col-span-2 text-right">Total HT</div>
                         </div>
 
                         {/* Rows Container */}
-                        <div className="p-4 space-y-3">
+                        <div className="p-4 space-y-2">
                             {items.map((item, i) => (
-                                <div key={i} className="group grid grid-cols-12 gap-4 items-start">
+                                <div key={i} className="group grid grid-cols-12 gap-4 items-start bg-zinc-900/10 p-2 rounded-lg hover:bg-zinc-900/50 transition-all border border-transparent hover:border-zinc-800">
 
-                                    {/* Description - High Affordance Input */}
+                                    {/* Description */}
                                     <div className="col-span-6">
                                         <textarea
                                             rows={1}
                                             value={item.description}
                                             onChange={(e) => updateItem(i, 'description', e.target.value)}
-                                            className="w-full min-h-[44px] bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white placeholder-zinc-500 outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm resize-none"
+                                            className="w-full min-h-[44px] bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white placeholder-zinc-500 outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm resize-none font-medium"
                                             placeholder="Désignation..."
                                         />
                                     </div>
@@ -220,7 +218,7 @@ export default function QuoteBuilder() {
                                         <input
                                             value={item.unit}
                                             onChange={(e) => updateItem(i, 'unit', e.target.value)}
-                                            className="w-full h-11 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white text-sm focus:border-[#EAB308] outline-none transition-all uppercase"
+                                            className="w-full h-11 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white text-sm font-bold uppercase focus:border-[#EAB308] outline-none transition-all"
                                         />
                                     </div>
 
@@ -249,7 +247,7 @@ export default function QuoteBuilder() {
 
                                     {/* Row Total & Delete */}
                                     <div className="col-span-2 flex items-center justify-end gap-3 h-11">
-                                        <span className="font-mono text-zinc-300 font-medium text-sm">
+                                        <span className="font-mono text-white font-bold text-sm whitespace-nowrap">
                                             {formatCurrency(item.total).replace(' DH', '')}
                                         </span>
                                         <button
@@ -266,11 +264,11 @@ export default function QuoteBuilder() {
                         </div>
 
                         {/* Footer Action */}
-                        <div className="p-4 border-t border-zinc-800 bg-zinc-900/30">
+                        <div className="p-4 border-t border-zinc-800 bg-zinc-900/20">
                             <button
                                 type="button"
                                 onClick={addItem}
-                                className="text-sm font-medium text-[#EAB308] hover:text-[#FACC15] flex items-center gap-2 hover:bg-[#EAB308]/10 px-4 py-2 rounded-lg transition-all w-fit"
+                                className="text-sm font-bold uppercase tracking-wide text-zinc-500 hover:text-[#EAB308] flex items-center gap-2 hover:bg-[#EAB308]/10 px-4 py-3 rounded-lg transition-all w-full md:w-auto border border-dashed border-zinc-800 hover:border-[#EAB308]/30"
                             >
                                 <Plus size={16} />
                                 Ajouter une ligne
@@ -280,20 +278,19 @@ export default function QuoteBuilder() {
 
                     {/* RIGHT: TOTALS PANEL (4 Columns) - Sticky */}
                     <div className="xl:col-span-4 space-y-6 sticky top-6">
-                        <div className="bg-[#111] border border-zinc-800 rounded-xl p-6 shadow-sm">
-                            <h2 className="text-base font-bold text-white mb-6 flex items-center gap-2">
+                        <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-8 shadow-sm">
+                            <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-6 flex items-center gap-2">
                                 <Calculator size={18} className="text-[#EAB308]" />
                                 Récapitulatif
                             </h2>
 
-                            {/* Calculation Rows: Flexbox for perfect alignment */}
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-zinc-400">Total HT</span>
-                                    <span className="text-white font-mono">{formatCurrency(totals.subtotal)}</span>
+                                    <span className="text-white font-mono font-medium">{formatCurrency(totals.subtotal)}</span>
                                 </div>
 
-                                {/* Remise Row: Integrated */}
+                                {/* Remise Row */}
                                 <div className="flex justify-between items-center text-sm group">
                                     <span className="text-zinc-400 group-focus-within:text-[#EAB308] transition-colors">Remise (%)</span>
                                     <div className="flex items-center gap-3">
@@ -304,50 +301,51 @@ export default function QuoteBuilder() {
                                             placeholder="0"
                                             value={discountRate}
                                             onChange={(e) => setDiscountRate(parseFloat(e.target.value) || 0)}
-                                            className="w-16 h-8 bg-zinc-900 border border-zinc-700 rounded text-center text-white text-sm font-mono focus:border-[#EAB308] outline-none"
+                                            className="w-16 h-8 bg-zinc-900 border border-zinc-800 rounded text-center text-white text-sm font-mono focus:border-[#EAB308] outline-none transition-colors"
                                         />
-                                        <span className="text-zinc-500 w-20 text-right font-mono text-xs">
-                                            -{formatCurrency(totals.discountAmount).replace(' DH', '')}
-                                        </span>
+                                        {discountRate > 0 && (
+                                            <span className="text-zinc-500 font-mono text-xs">
+                                                -{formatCurrency(totals.discountAmount)}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
-                                <div className="border-t border-zinc-800 my-2"></div>
+                                <div className="border-t border-dashed border-zinc-800 my-2"></div>
 
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-zinc-400">Net HT</span>
-                                    <span className="text-white font-mono">{formatCurrency(totals.netHT)}</span>
+                                    <span className="text-white font-mono font-medium">{formatCurrency(totals.netHT)}</span>
                                 </div>
 
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-zinc-400">TVA (20%)</span>
-                                    <span className="text-white font-mono">{formatCurrency(totals.tva)}</span>
+                                    <span className="text-white font-mono font-medium">{formatCurrency(totals.tva)}</span>
                                 </div>
 
-                                {/* Grand Total */}
-                                <div className="pt-6 mt-4 border-t border-dashed border-zinc-700">
-                                    <div className="flex justify-between items-end">
-                                        <span className="text-sm font-bold text-white uppercase tracking-wide mb-1">Total TTC</span>
-                                        <span className="text-2xl font-black text-[#EAB308] font-mono tracking-tight">
+                                {/* Grand Total - NOW FIXED WITH WHITESPACE-NOWRAP */}
+                                <div className="pt-6 mt-4 border-t border-zinc-800">
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Net à payer</span>
+                                        <span className="text-3xl font-black text-[#EAB308] font-mono tracking-tight whitespace-nowrap">
                                             {formatCurrency(totals.totalTTC)}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Action Button - With Breathing Room */}
-                            <div className="mt-8 pt-2">
+                            <div className="mt-8">
                                 <button
                                     type="button"
                                     onClick={handleSubmit}
                                     disabled={loading}
-                                    className="w-full bg-[#EAB308] text-black font-bold h-12 rounded-xl hover:bg-[#FACC15] hover:shadow-[0_4px_20px_rgba(234,179,8,0.2)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none text-sm uppercase tracking-wider"
+                                    className="w-full bg-[#EAB308] text-black font-black h-14 rounded-xl hover:bg-[#FACC15] hover:shadow-[0_0_30px_rgba(234,179,8,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none text-sm uppercase tracking-wider transform active:scale-[0.98]"
                                 >
                                     {loading ? (
                                         <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
                                     ) : (
                                         <>
-                                            <Save size={18} />
+                                            <Save size={20} />
                                             Enregistrer le devis
                                         </>
                                     )}

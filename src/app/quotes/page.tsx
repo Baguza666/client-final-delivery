@@ -126,7 +126,6 @@ export default function QuotesPage() {
                                         {new Date(quote.created_at).toLocaleDateString('fr-FR')}
                                     </td>
                                     <td className="px-6 py-4 text-right font-mono text-zinc-300">
-                                        {/* ✅ FIXED: Fallback chain total_ttc -> total -> subtotal*1.2 */}
                                         {new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD' }).format(quote.total_ttc || quote.total || (quote.subtotal * 1.2) || 0)}
                                     </td>
                                     <td className="px-6 py-4 text-center">
