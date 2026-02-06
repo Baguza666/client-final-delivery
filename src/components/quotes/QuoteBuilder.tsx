@@ -7,8 +7,6 @@ import {
     Plus,
     Trash2,
     Calendar,
-    User,
-    FileText,
     Calculator,
     Save,
     ChevronDown,
@@ -120,13 +118,12 @@ export default function QuoteBuilder() {
     const formatCurrency = (value: number) => value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DH'
 
     return (
-        <div className="min-h-screen bg-black pl-72 text-white font-sans selection:bg-[#EAB308] selection:text-black">
+        <div className="min-h-screen bg-black pl-72 text-white font-sans">
 
-            {/* WRAPPER: Max width removed, now using 95% width for "Ultrawide" feel */}
-            <div className="w-[95%] max-w-[1920px] mx-auto p-8 space-y-8">
+            <div className="w-full max-w-[1920px] mx-auto p-8 space-y-8">
 
-                {/* --- 1. HEADER --- */}
-                <div className="flex items-center justify-between pb-4 border-b border-zinc-800/50">
+                {/* --- HEADER --- */}
+                <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
                     <div className="flex items-center gap-4">
                         <Link href="/quotes" className="p-2 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800">
                             <ArrowLeft size={20} />
@@ -138,24 +135,18 @@ export default function QuoteBuilder() {
                             </h1>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 bg-zinc-900/50 px-3 py-1.5 rounded border border-zinc-800/50">
-                            Brouillon
-                        </span>
-                    </div>
                 </div>
 
-                {/* --- 2. CONFIGURATION BAR --- */}
+                {/* --- CONFIGURATION BAR --- */}
                 <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-6 shadow-sm">
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-                        {/* Client Select */}
                         <div className="md:col-span-8 space-y-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Client</label>
                             <div className="relative group">
                                 <select
                                     value={clientId}
                                     onChange={(e) => setClientId(e.target.value)}
-                                    className="w-full h-12 bg-zinc-900 border border-zinc-800 rounded-lg px-4 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] appearance-none transition-all text-sm font-medium cursor-pointer hover:bg-zinc-800 hover:border-zinc-700"
+                                    className="w-full h-12 bg-zinc-900 border border-zinc-800 rounded-lg px-4 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] appearance-none transition-all text-sm font-medium cursor-pointer hover:bg-zinc-800"
                                 >
                                     <option value="">-- Sélectionner un client --</option>
                                     {clients.map((c) => (
@@ -166,7 +157,6 @@ export default function QuoteBuilder() {
                             </div>
                         </div>
 
-                        {/* Date Picker */}
                         <div className="md:col-span-4 space-y-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Date d'émission</label>
                             <div className="relative">
@@ -174,7 +164,7 @@ export default function QuoteBuilder() {
                                     type="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full h-12 bg-zinc-900 border border-zinc-800 rounded-lg px-4 pl-12 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm font-medium hover:bg-zinc-800 hover:border-zinc-700"
+                                    className="w-full h-12 bg-zinc-900 border border-zinc-800 rounded-lg px-4 pl-12 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm font-medium hover:bg-zinc-800"
                                 />
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={18} />
                             </div>
@@ -182,58 +172,61 @@ export default function QuoteBuilder() {
                     </div>
                 </div>
 
-                {/* --- 3. WORKSPACE GRID --- */}
+                {/* --- WORKSPACE GRID --- */}
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
 
                     {/* LEFT: ITEMS TABLE (8 Columns) */}
                     <div className="xl:col-span-8 bg-[#0A0A0A] border border-zinc-800 rounded-xl shadow-sm flex flex-col overflow-hidden min-h-[500px]">
 
-                        {/* Header Row */}
+                        {/* ✅ GRID FIX: Modified column spans to give "Qty" and "Unit" more room 
+                            Cols: 12 Total
+                            Desc (4) | Unit (1) | Qty (2) | Price (2) | Total (2) | Del (1)
+                        */}
                         <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-zinc-900/50 border-b border-zinc-800 text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
-                            <div className="col-span-6">Description / Service</div>
+                            <div className="col-span-4">Description</div>
                             <div className="col-span-1 text-center">Unité</div>
-                            <div className="col-span-1 text-center">Qté</div>
+                            <div className="col-span-2 text-center">Qté</div>
                             <div className="col-span-2 text-right">Prix Uni.</div>
                             <div className="col-span-2 text-right">Total HT</div>
+                            <div className="col-span-1"></div>
                         </div>
 
-                        {/* Rows Container */}
                         <div className="p-4 space-y-2">
                             {items.map((item, i) => (
                                 <div key={i} className="group grid grid-cols-12 gap-4 items-start bg-zinc-900/10 p-2 rounded-lg hover:bg-zinc-900/50 transition-all border border-transparent hover:border-zinc-800">
 
-                                    {/* Description */}
-                                    <div className="col-span-6">
+                                    {/* Description - col-span-4 */}
+                                    <div className="col-span-4">
                                         <textarea
                                             rows={1}
                                             value={item.description}
                                             onChange={(e) => updateItem(i, 'description', e.target.value)}
-                                            className="w-full min-h-[44px] bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white placeholder-zinc-500 outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm resize-none font-medium"
+                                            className="w-full min-h-[48px] bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white placeholder-zinc-500 outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm resize-none font-medium leading-normal"
                                             placeholder="Désignation..."
                                         />
                                     </div>
 
-                                    {/* Unit */}
+                                    {/* Unit - col-span-1 */}
                                     <div className="col-span-1">
                                         <input
                                             value={item.unit}
                                             onChange={(e) => updateItem(i, 'unit', e.target.value)}
-                                            className="w-full h-11 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white text-sm font-bold uppercase focus:border-[#EAB308] outline-none transition-all"
+                                            className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white text-sm font-bold uppercase focus:border-[#EAB308] outline-none transition-all"
                                         />
                                     </div>
 
-                                    {/* Quantity */}
-                                    <div className="col-span-1">
+                                    {/* Quantity - col-span-2 (Wider now) */}
+                                    <div className="col-span-2">
                                         <input
                                             type="number"
                                             min="0"
                                             value={item.quantity}
                                             onChange={(e) => updateItem(i, 'quantity', e.target.value)}
-                                            className="w-full h-11 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none transition-all"
+                                            className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none transition-all"
                                         />
                                     </div>
 
-                                    {/* Price */}
+                                    {/* Price - col-span-2 */}
                                     <div className="col-span-2">
                                         <input
                                             type="number"
@@ -241,29 +234,31 @@ export default function QuoteBuilder() {
                                             step="0.01"
                                             value={item.unit_price}
                                             onChange={(e) => updateItem(i, 'unit_price', e.target.value)}
-                                            className="w-full h-11 bg-zinc-800 border border-zinc-700 rounded-lg text-right pr-3 text-white font-mono text-sm focus:border-[#EAB308] outline-none transition-all"
+                                            className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-right pr-3 text-white font-mono text-sm focus:border-[#EAB308] outline-none transition-all"
                                         />
                                     </div>
 
-                                    {/* Row Total & Delete */}
-                                    <div className="col-span-2 flex items-center justify-end gap-3 h-11">
+                                    {/* Row Total - col-span-2 */}
+                                    <div className="col-span-2 flex items-center justify-end h-12">
                                         <span className="font-mono text-white font-bold text-sm whitespace-nowrap">
                                             {formatCurrency(item.total).replace(' DH', '')}
                                         </span>
+                                    </div>
+
+                                    {/* Delete - col-span-1 */}
+                                    <div className="col-span-1 flex items-center justify-center h-12">
                                         <button
                                             type="button"
                                             onClick={() => removeItem(i)}
                                             className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 transition-all p-2 hover:bg-zinc-800 rounded"
-                                            title="Supprimer la ligne"
                                         >
-                                            <Trash2 size={16} />
+                                            <Trash2 size={18} />
                                         </button>
                                     </div>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Footer Action */}
                         <div className="p-4 border-t border-zinc-800 bg-zinc-900/20">
                             <button
                                 type="button"
@@ -276,7 +271,7 @@ export default function QuoteBuilder() {
                         </div>
                     </div>
 
-                    {/* RIGHT: TOTALS PANEL (4 Columns) - Sticky */}
+                    {/* RIGHT: TOTALS PANEL */}
                     <div className="xl:col-span-4 space-y-6 sticky top-6">
                         <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-8 shadow-sm">
                             <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-6 flex items-center gap-2">
@@ -290,7 +285,6 @@ export default function QuoteBuilder() {
                                     <span className="text-white font-mono font-medium">{formatCurrency(totals.subtotal)}</span>
                                 </div>
 
-                                {/* Remise Row */}
                                 <div className="flex justify-between items-center text-sm group">
                                     <span className="text-zinc-400 group-focus-within:text-[#EAB308] transition-colors">Remise (%)</span>
                                     <div className="flex items-center gap-3">
@@ -323,7 +317,6 @@ export default function QuoteBuilder() {
                                     <span className="text-white font-mono font-medium">{formatCurrency(totals.tva)}</span>
                                 </div>
 
-                                {/* Grand Total - NOW FIXED WITH WHITESPACE-NOWRAP */}
                                 <div className="pt-6 mt-4 border-t border-zinc-800">
                                     <div className="flex flex-col items-end gap-1">
                                         <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Net à payer</span>
