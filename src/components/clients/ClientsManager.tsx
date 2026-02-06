@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // ✅ Import useEffect
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import ClientsList from './ClientsList';
@@ -25,12 +25,7 @@ export default function ClientsManager({ clients: initialClients }: { clients: a
 
     // New Client Form State
     const [newClientData, setNewClientData] = useState({
-        name: '',
-        email: '',
-        phone: '',
-        city: '',
-        address: '',
-        ice: ''
+        name: '', email: '', phone: '', city: '', address: '', ice: ''
     });
 
     const router = useRouter();
@@ -38,6 +33,11 @@ export default function ClientsManager({ clients: initialClients }: { clients: a
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
+
+    // ✅ THE FIX: This synchronizes the state when the data actually arrives from the parent page
+    useEffect(() => {
+        setClients(initialClients);
+    }, [initialClients]);
 
     // 🔍 Search Logic
     const filteredClients = clients.filter(client =>
@@ -51,19 +51,19 @@ export default function ClientsManager({ clients: initialClients }: { clients: a
         e.preventDefault();
         setLoading(true);
 
+        // Ensure we send NULL if owner_id is missing (handled by DB now)
         const { data, error } = await supabase
             .from('clients')
             .insert([newClientData])
             .select();
 
         if (error) {
-            alert('Erreur lors de la création : ' + error.message);
+            alert('Erreur : ' + error.message);
         } else if (data) {
-            // Update local state immediately
-            setClients([data[0] as Client, ...clients]);
+            setClients([data[0] as Client, ...clients]); // Optimistic update
             setIsCreateModalOpen(false);
-            setNewClientData({ name: '', email: '', phone: '', city: '', address: '', ice: '' }); // Reset form
-            router.refresh(); // Sync server cache
+            setNewClientData({ name: '', email: '', phone: '', city: '', address: '', ice: '' });
+            router.refresh();
         }
         setLoading(false);
     };
@@ -72,7 +72,7 @@ export default function ClientsManager({ clients: initialClients }: { clients: a
         <div className="min-h-screen bg-black pl-72 text-white">
             <main className="max-w-7xl mx-auto p-12">
 
-                {/* --- HEADER --- */}
+                {/* HEADER */}
                 <div className="flex justify-between items-center mb-10">
                     <div>
                         <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Clients</h1>
@@ -87,7 +87,7 @@ export default function ClientsManager({ clients: initialClients }: { clients: a
                     </button>
                 </div>
 
-                {/* --- SEARCH BAR --- */}
+                {/* SEARCH BAR */}
                 <div className="mb-8 relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <span className="material-symbols-outlined text-zinc-500 group-focus-within:text-[#EAB308] transition-colors">search</span>
@@ -101,16 +101,13 @@ export default function ClientsManager({ clients: initialClients }: { clients: a
                     />
                 </div>
 
-                {/* --- CLIENTS GRID LIST --- */}
-                {/* We pass the filtered list to the display component */}
+                {/* LIST COMPONENT */}
                 <ClientsList initialClients={filteredClients} />
 
-                {/* --- CREATE MODAL (Popup) --- */}
+                {/* CREATE MODAL */}
                 {isCreateModalOpen && (
                     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
                         <div className="bg-[#111] border border-white/10 w-full max-w-lg rounded-2xl p-8 shadow-2xl animate-in zoom-in-95 duration-200 relative">
-
-                            {/* Close Button */}
                             <button
                                 onClick={() => setIsCreateModalOpen(false)}
                                 className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
@@ -119,82 +116,42 @@ export default function ClientsManager({ clients: initialClients }: { clients: a
                             </button>
 
                             <h2 className="text-xl font-bold mb-1 text-white">Nouveau Client</h2>
-                            <p className="text-zinc-500 text-sm mb-6">Ajoutez une nouvelle entreprise à votre répertoire.</p>
+                            <p className="text-zinc-500 text-sm mb-6">Ajoutez une nouvelle entreprise.</p>
 
                             <form onSubmit={handleCreate} className="space-y-4">
-                                {/* Name */}
                                 <div>
                                     <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Nom de l'entreprise</label>
-                                    <input
-                                        required
-                                        type="text"
-                                        value={newClientData.name}
-                                        onChange={e => setNewClientData({ ...newClientData, name: e.target.value })}
-                                        className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] outline-none transition-all"
-                                        placeholder="Ex: IMSAL Services"
-                                    />
+                                    <input required type="text" value={newClientData.name} onChange={e => setNewClientData({ ...newClientData, name: e.target.value })} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none" />
                                 </div>
-
-                                {/* Contact Grid */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Email</label>
-                                        <input
-                                            type="email"
-                                            value={newClientData.email}
-                                            onChange={e => setNewClientData({ ...newClientData, email: e.target.value })}
-                                            className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] outline-none transition-all"
-                                        />
+                                        <input type="email" value={newClientData.email} onChange={e => setNewClientData({ ...newClientData, email: e.target.value })} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none" />
                                     </div>
                                     <div>
                                         <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Téléphone</label>
-                                        <input
-                                            type="text"
-                                            value={newClientData.phone}
-                                            onChange={e => setNewClientData({ ...newClientData, phone: e.target.value })}
-                                            className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] outline-none transition-all"
-                                        />
+                                        <input type="text" value={newClientData.phone} onChange={e => setNewClientData({ ...newClientData, phone: e.target.value })} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none" />
                                     </div>
                                 </div>
-
-                                {/* Details Grid */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Ville</label>
-                                        <input
-                                            type="text"
-                                            value={newClientData.city}
-                                            onChange={e => setNewClientData({ ...newClientData, city: e.target.value })}
-                                            className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] outline-none transition-all"
-                                        />
+                                        <input type="text" value={newClientData.city} onChange={e => setNewClientData({ ...newClientData, city: e.target.value })} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none" />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">ICE (Optionnel)</label>
-                                        <input
-                                            type="text"
-                                            value={newClientData.ice}
-                                            onChange={e => setNewClientData({ ...newClientData, ice: e.target.value })}
-                                            className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] outline-none transition-all"
-                                        />
+                                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">ICE</label>
+                                        <input type="text" value={newClientData.ice} onChange={e => setNewClientData({ ...newClientData, ice: e.target.value })} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none" />
                                     </div>
                                 </div>
-
-                                {/* Address */}
                                 <div>
-                                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Adresse Complète</label>
-                                    <textarea
-                                        value={newClientData.address}
-                                        onChange={e => setNewClientData({ ...newClientData, address: e.target.value })}
-                                        rows={2}
-                                        className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] outline-none transition-all resize-none"
-                                    />
+                                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Adresse</label>
+                                    <textarea value={newClientData.address} onChange={e => setNewClientData({ ...newClientData, address: e.target.value })} rows={2} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none resize-none" />
                                 </div>
 
-                                {/* Submit Button */}
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full bg-[#EAB308] text-black font-bold py-4 rounded-xl mt-6 hover:bg-[#FACC15] transition-colors disabled:opacity-50 shadow-lg shadow-[#EAB308]/10"
+                                    className="w-full bg-[#EAB308] text-black font-bold py-4 rounded-xl mt-6 hover:bg-[#FACC15] transition-colors disabled:opacity-50"
                                 >
                                     {loading ? 'Enregistrement...' : 'Enregistrer le client'}
                                 </button>
