@@ -8,7 +8,7 @@ import OnboardingModal from './OnboardingModal';
 
 const menuItems = [
     { name: 'Tableau de bord', icon: 'dashboard', path: '/' },
-    { name: 'Clients', icon: 'groups', path: '/clients' },
+    { name: 'Clients', icon: 'groups', path: '/clients' }, // ✅ Correct path
     { name: 'Devis', icon: 'description', path: '/quotes' },
     { name: 'Bons de Commande', icon: 'shopping_cart', path: '/purchase-orders' },
     { name: 'Bons de Livraison', icon: 'local_shipping', path: '/delivery-notes' },
@@ -43,8 +43,8 @@ export default function Sidebar() {
     // 3. Sign Out Logic
     const handleSignOut = async () => {
         await supabase.auth.signOut();
+        router.refresh(); // Refresh before push to clear server cache
         router.push('/login');
-        router.refresh();
     };
 
     // Helper: Get Initials
@@ -73,6 +73,7 @@ export default function Sidebar() {
             {/* Navigation Menu */}
             <nav className="flex-1 px-4 space-y-2 overflow-y-auto no-scrollbar mt-2">
                 {menuItems.map((item) => {
+                    // Active state logic
                     const isActive = item.path === '/'
                         ? pathname === '/'
                         : pathname.startsWith(item.path);

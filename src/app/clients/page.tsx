@@ -1,73 +1,95 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { redirect } from "next/navigation";
-import Sidebar from '@/components/Sidebar';
-import ClientManager from '@/components/clients/ClientsManager';
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 export default async function ClientsPage() {
-    // 1. Setup Supabase with FULL cookie handling (getAll + setAll)
-    const cookieStore = await cookies();
+    const cookieStore = await cookies()
+
+    // 1. Initialize Supabase with proper cookie handling
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
             cookies: {
                 getAll() {
-                    return cookieStore.getAll();
+                    return cookieStore.getAll()
                 },
                 setAll(cookiesToSet) {
                     try {
                         cookiesToSet.forEach(({ name, value, options }) =>
                             cookieStore.set(name, value, options)
-                        );
+                        )
                     } catch {
-                        // Ignore errors in Server Components (read-only context)
+                        // Server Components can't set cookies, so we ignore this safely
                     }
                 },
             },
         }
-    );
+    )
 
-    // 2. Check Auth - getUser() refreshes the session token
-    const { data: { user } } = await supabase.auth.getUser();
+    // 2. Strict Auth Check
+    const { data: { user }, error } = await supabase.auth.getUser()
 
-    if (!user) {
-        redirect("/login");
+    if (error || !user) {
+        redirect('/login')
     }
 
-    // 3. Fetch Clients (Filtered by Owner)
-    const { data: clients, error } = await supabase
+    // 3. Fetch Clients (Safely)
+    const { data: clients, error: clientsError } = await supabase
         .from('clients')
         .select('*')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: false });
-
-    if (error) console.error("Error fetching clients:", error);
+        .order('name', { ascending: true })
 
     return (
-        <div className="bg-[#050505] text-white font-sans overflow-hidden min-h-screen antialiased">
-            <div className="flex h-full w-full">
-
-                {/* Fixed Sidebar */}
-                <div className="fixed left-0 top-0 h-screen z-20">
-                    <Sidebar />
+        <div className="max-w-6xl mx-auto p-8">
+            <div className="flex justify-between items-center mb-8">
+                <div>
+                    <h1 className="text-3xl font-black text-white uppercase tracking-tighter">Clients</h1>
+                    <p className="text-zinc-500 text-sm mt-1">Gérez votre base de données clients</p>
                 </div>
+                {/* You can add a 'New Client' button logic here later if needed */}
+                <button className="bg-[#EAB308] text-black px-4 py-2 rounded-lg font-bold text-sm uppercase tracking-wide hover:bg-yellow-400 transition-colors">
+                    + Nouveau Client
+                </button>
+            </div>
 
-                <main className="flex-1 flex flex-col relative overflow-hidden bg-[#050505] ml-72">
-
-                    {/* Glass Header */}
-                    <header className="absolute top-0 left-0 right-0 z-10 glass-header px-8 h-20 flex items-center justify-between">
-                        <h2 className="text-white text-xl font-bold tracking-tight">MES CLIENTS</h2>
-                    </header>
-
-                    {/* Scrollable Content Area */}
-                    <div className="flex-1 overflow-y-auto pt-28 pb-10 px-8">
-                        <div className="max-w-[1200px] mx-auto w-full">
-                            <ClientManager clients={clients || []} />
-                        </div>
-                    </div>
-                </main>
+            {/* Clients Table */}
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden backdrop-blur-sm">
+                <table className="w-full text-left text-sm">
+                    <thead>
+                        <tr className="bg-zinc-900/80 border-b border-zinc-800 text-zinc-500 text-[10px] uppercase tracking-widest">
+                            <th className="px-6 py-4 font-medium">Nom de l'entreprise</th>
+                            <th className="px-6 py-4 font-medium">Email</th>
+                            <th className="px-6 py-4 font-medium">Téléphone</th>
+                            <th className="px-6 py-4 font-medium">Ville</th>
+                            <th className="px-6 py-4 text-right font-medium">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/50">
+                        {clients && clients.length > 0 ? (
+                            clients.map((client: any) => (
+                                <tr key={client.id} className="hover:bg-zinc-800/30 transition-colors group">
+                                    <td className="px-6 py-4 text-white font-bold">{client.name}</td>
+                                    <td className="px-6 py-4 text-zinc-400">{client.email || '-'}</td>
+                                    <td className="px-6 py-4 text-zinc-400 font-mono text-xs">{client.phone || '-'}</td>
+                                    <td className="px-6 py-4 text-zinc-400">{client.city || '-'}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <span className="text-zinc-600 group-hover:text-white cursor-pointer text-xs uppercase font-bold tracking-wider">
+                                            Modifier
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan={5} className="px-6 py-12 text-center text-zinc-500">
+                                    Aucun client trouvé.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
             </div>
         </div>
-    );
+    )
 }
