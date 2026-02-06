@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ModalProvider } from "@/components/ui/ModalProvider";
+import Sidebar from "@/components/Sidebar"; // ✅ 1. Import the Sidebar
 
-// 1. Load Standard Fonts
+// Load Standard Fonts
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -42,9 +43,13 @@ export default function RootLayout({
       </head>
       <body
         suppressHydrationWarning={true}
-        className={`${inter.variable} ${mono.variable} antialiased bg-background-dark text-white font-sans`}
+        className={`${inter.variable} ${mono.variable} antialiased bg-black text-white font-sans`} // Changed bg-background-dark to bg-black for consistency
       >
         <ModalProvider>
+          {/* ✅ 2. Render Sidebar Globally */}
+          <Sidebar />
+
+          {/* Main Content */}
           {children}
         </ModalProvider>
       </body>
