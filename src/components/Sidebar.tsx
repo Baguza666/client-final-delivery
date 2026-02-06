@@ -8,7 +8,7 @@ import OnboardingModal from './OnboardingModal';
 
 const menuItems = [
     { name: 'Tableau de bord', icon: 'dashboard', path: '/' },
-    { name: 'Clients', icon: 'groups', path: '/clients' }, // ✅ Correct path
+    { name: 'Clients', icon: 'groups', path: '/clients' },
     { name: 'Devis', icon: 'description', path: '/quotes' },
     { name: 'Bons de Commande', icon: 'shopping_cart', path: '/purchase-orders' },
     { name: 'Bons de Livraison', icon: 'local_shipping', path: '/delivery-notes' },
@@ -24,13 +24,11 @@ export default function Sidebar() {
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
-    // 1. Initialize Supabase
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // 2. Fetch User Data
     useEffect(() => {
         const getUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -40,14 +38,12 @@ export default function Sidebar() {
         getUser();
     }, [supabase]);
 
-    // 3. Sign Out Logic
     const handleSignOut = async () => {
         await supabase.auth.signOut();
-        router.refresh(); // Refresh before push to clear server cache
+        router.refresh();
         router.push('/login');
     };
 
-    // Helper: Get Initials
     const getInitials = () => {
         if (!user) return '??';
         const name = user.user_metadata?.full_name || user.email || '';
@@ -56,10 +52,8 @@ export default function Sidebar() {
 
     return (
         <aside className="w-72 h-screen bg-black border-r border-white/5 flex flex-col fixed left-0 top-0 z-50">
-            {/* Onboarding Popup */}
             <OnboardingModal />
 
-            {/* Logo Section */}
             <div className="p-8 pb-4">
                 <div className="relative w-60 h-15 mb-2 flex items-center">
                     <img
@@ -70,10 +64,8 @@ export default function Sidebar() {
                 </div>
             </div>
 
-            {/* Navigation Menu */}
             <nav className="flex-1 px-4 space-y-2 overflow-y-auto no-scrollbar mt-2">
                 {menuItems.map((item) => {
-                    // Active state logic
                     const isActive = item.path === '/'
                         ? pathname === '/'
                         : pathname.startsWith(item.path);
@@ -82,6 +74,7 @@ export default function Sidebar() {
                         <Link
                             key={item.path}
                             href={item.path}
+                            prefetch={false} // ✅ Fixes Middleware race conditions
                             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
                                 ? 'bg-white/10 text-primary border border-primary/20 shadow-[0_0_20px_rgba(244,185,67,0.1)]'
                                 : 'text-[#a1a1aa] hover:bg-white/5 hover:text-white'
@@ -98,6 +91,7 @@ export default function Sidebar() {
                 <div className="pt-4 pb-2">
                     <Link
                         href="/invoices/new"
+                        prefetch={false}
                         className="flex items-center justify-center gap-2 w-full bg-white/5 border border-white/10 text-white py-3 rounded-xl hover:bg-white/10 hover:border-primary/30 transition-all group"
                     >
                         <span className="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">add</span>
@@ -106,10 +100,10 @@ export default function Sidebar() {
                 </div>
             </nav>
 
-            {/* Settings & Profile Section */}
             <div className="p-4 space-y-2 bg-black/50 backdrop-blur-xl border-t border-white/5">
                 <Link
                     href="/settings"
+                    prefetch={false}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${pathname === '/settings'
                         ? 'text-primary bg-white/5'
                         : 'text-[#a1a1aa] hover:text-white'
@@ -119,26 +113,20 @@ export default function Sidebar() {
                     <span className="font-medium text-sm">Paramètres</span>
                 </Link>
 
-                {/* DYNAMIC USER PROFILE */}
                 {loading ? (
                     <div className="h-14 w-full bg-white/5 animate-pulse rounded-xl" />
                 ) : user ? (
                     <div className="relative group">
                         <button className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left hover:bg-white/10 transition-colors">
-                            {/* Avatar */}
                             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center text-white text-xs font-bold border border-white/10 shadow-lg shrink-0">
                                 {getInitials()}
                             </div>
-
-                            {/* Name & Email */}
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-white truncate">
                                     {user.user_metadata?.full_name || 'Utilisateur'}
                                 </p>
                                 <p className="text-[10px] text-zinc-500 truncate">{user.email}</p>
                             </div>
-
-                            {/* Logout Icon (Visible on Hover) */}
                             <div
                                 onClick={(e) => {
                                     e.stopPropagation();
