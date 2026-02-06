@@ -21,11 +21,24 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
     if (!invoice) return notFound()
 
+    // 1. Resolve Workspace
     let finalWorkspace = invoice.workspace;
     if (!finalWorkspace) {
         const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single();
-        finalWorkspace = defaultWs;
+        finalWorkspace = defaultWs || {};
     }
+
+    // 2. 🔒 HARDCODE STAMP DETAILS (IMSAL SERVICES)
+    finalWorkspace = {
+        ...finalWorkspace,
+        name: "IMSAL SERVICES",
+        address: "7 Lotis Najmat El Janoub",
+        city: "El Jadida",
+        country: "Maroc",
+        phone: "+212(0)6 61 43 52 83",
+        email: "i.assal@imsalservices.com",
+        ice: "0014398551000071",
+    };
 
     return (
         <div className="bg-zinc-950 min-h-screen font-sans text-white flex">
@@ -69,7 +82,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             <InvoiceViewer
                 invoice={invoice}
                 client={invoice.client}
-                ws={finalWorkspace}
+                ws={finalWorkspace} // ✅ Passes the hardcoded details
             />
         </div>
     )

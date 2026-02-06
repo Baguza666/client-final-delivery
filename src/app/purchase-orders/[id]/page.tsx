@@ -18,11 +18,33 @@ export default async function PurchaseOrderPage({ params }: PageProps) {
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     )
 
+    // 1. Fetch Document
     const { data: document } = await supabase.from('purchase_orders').select('*, purchase_order_items(*)').eq('id', id).single()
     if (!document) return notFound()
 
+    // 2. Fetch Client
     const { data: client } = await supabase.from('clients').select('*').eq('id', document.client_id).single()
-    const { data: workspace } = await supabase.from('workspaces').select('*').eq('id', document.workspace_id).single()
+
+    // 3. Fetch Workspace & Override with Hardcoded Details
+    let { data: workspace } = await supabase.from('workspaces').select('*').eq('id', document.workspace_id).single()
+
+    // Fallback if no workspace is linked
+    if (!workspace) {
+        const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single()
+        workspace = defaultWs || {}
+    }
+
+    // 🔒 HARDCODE STAMP DETAILS
+    const finalWorkspace = {
+        ...workspace,
+        name: "IMSAL SERVICES",
+        address: "7 Lotis Najmat El Janoub",
+        city: "El Jadida",
+        country: "Maroc",
+        phone: "+212(0)6 61 43 52 83",
+        email: "i.assal@imsalservices.com",
+        ice: "0014398551000071",
+    };
 
     return (
         <div className="bg-black min-h-screen text-white font-['Inter']">
@@ -36,8 +58,16 @@ export default async function PurchaseOrderPage({ params }: PageProps) {
                     .print-container { position: absolute; left: 0; top: 0; width: 210mm !important; height: 297mm !important; margin: 0 !important; padding: 0 !important; background: white !important; color: black !important; box-shadow: none !important; overflow: hidden !important; }
                 }
             `}</style>
-            <div className="fixed left-0 top-0 h-screen z-20 print:hidden"><Sidebar /></div>
-            <PurchaseOrderViewer document={document} client={client} ws={workspace} />
+
+            <div className="fixed left-0 top-0 h-screen z-20 print:hidden">
+                <Sidebar />
+            </div>
+
+            <PurchaseOrderViewer
+                document={document}
+                client={client}
+                ws={finalWorkspace} // ✅ Passes the hardcoded details
+            />
         </div>
     )
 }

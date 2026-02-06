@@ -21,7 +21,7 @@ export default async function DeliveryNotePage({ params }: PageProps) {
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     )
 
-    // Fetch Delivery Note
+    // 1. Fetch Delivery Note
     const { data: document } = await supabase
         .from('delivery_notes')
         .select('*, delivery_note_items(*)')
@@ -30,21 +30,39 @@ export default async function DeliveryNotePage({ params }: PageProps) {
 
     if (!document) return notFound()
 
-    // Fetch Relations
+    // 2. Fetch Client
     const { data: client } = await supabase
         .from('clients')
         .select('*')
         .eq('id', document.client_id)
         .single()
 
-    const { data: workspace } = await supabase
+    // 3. Fetch Workspace
+    let { data: workspace } = await supabase
         .from('workspaces')
         .select('*')
         .eq('id', document.workspace_id)
         .single()
 
+    // Fallback if no workspace is linked
+    if (!workspace) {
+        const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single()
+        workspace = defaultWs || {}
+    }
+
+    // 🔒 HARDCODE STAMP DETAILS (IMSAL SERVICES)
+    const finalWorkspace = {
+        ...workspace,
+        name: "IMSAL SERVICES",
+        address: "7 Lotis Najmat El Janoub",
+        city: "El Jadida",
+        country: "Maroc",
+        phone: "+212(0)6 61 43 52 83",
+        email: "i.assal@imsalservices.com",
+        ice: "0014398551000071",
+    };
+
     return (
-        // ✅ LAYOUT FIX: No 'flex' here. Sidebar is fixed, content uses margin.
         <div className="bg-black min-h-screen text-white font-['Inter']">
 
             <style>{`
@@ -84,7 +102,7 @@ export default async function DeliveryNotePage({ params }: PageProps) {
             <DeliveryNoteViewer
                 document={document}
                 client={client}
-                ws={workspace}
+                ws={finalWorkspace} // ✅ Passes the hardcoded details
             />
         </div>
     )
