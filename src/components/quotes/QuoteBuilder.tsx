@@ -16,14 +16,14 @@ import {
 import Link from 'next/link'
 import { createQuote } from './QuoteActions'
 
-// Configuration des colonnes pour un contrôle total de la largeur
+// Configuration des colonnes avec flex-shrink-0 pour empêcher le collapse
 const COLUMN_WIDTHS = {
-    description: 'flex-grow min-w-[300px]',
-    unit: 'w-24',
-    qty: 'w-24',
-    price: 'w-40',
-    total: 'w-40',
-    actions: 'w-12'
+    description: 'flex-1 min-w-[200px]',
+    unit: 'flex-shrink-0 w-[80px]',
+    qty: 'flex-shrink-0 w-[100px]',
+    price: 'flex-shrink-0 w-[120px]',
+    total: 'flex-shrink-0 w-[140px]',
+    actions: 'flex-shrink-0 w-[48px]'
 }
 
 interface Client {
@@ -197,8 +197,9 @@ export default function QuoteBuilder() {
                         {/* LISTE DES ARTICLES */}
                         <div className="p-4 space-y-3">
                             {items.map((item, i) => (
-                                <div key={i} className="flex gap-4 items-start bg-zinc-800/30 p-3 rounded-xl border border-transparent hover:border-zinc-700 transition-all">
+                                <div key={i} className="flex flex-col lg:flex-row gap-3 lg:gap-4 items-stretch lg:items-start bg-zinc-800/30 p-4 rounded-xl border border-transparent hover:border-zinc-700 transition-all">
 
+                                    {/* Description - takes remaining space */}
                                     <div className={COLUMN_WIDTHS.description}>
                                         <textarea
                                             rows={2}
@@ -209,14 +210,17 @@ export default function QuoteBuilder() {
                                         />
                                     </div>
 
+                                    {/* Unit - fixed width, never shrinks */}
                                     <div className={COLUMN_WIDTHS.unit}>
                                         <input
                                             value={item.unit}
                                             onChange={(e) => updateItem(i, 'unit', e.target.value)}
                                             className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg text-center text-white text-xs font-bold uppercase focus:border-[#EAB308] outline-none"
+                                            placeholder="U"
                                         />
                                     </div>
 
+                                    {/* Quantity - fixed width, never shrinks */}
                                     <div className={COLUMN_WIDTHS.qty}>
                                         <input
                                             type="number"
@@ -226,24 +230,27 @@ export default function QuoteBuilder() {
                                         />
                                     </div>
 
+                                    {/* Price - fixed width, never shrinks */}
                                     <div className={COLUMN_WIDTHS.price}>
                                         <input
                                             type="number"
                                             step="0.01"
                                             value={item.unit_price}
                                             onChange={(e) => updateItem(i, 'unit_price', e.target.value)}
-                                            className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg text-right pr-4 text-white font-mono text-sm focus:border-[#EAB308] outline-none"
+                                            className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg text-right pr-3 text-white font-mono text-sm focus:border-[#EAB308] outline-none"
                                         />
                                     </div>
 
+                                    {/* Total - fixed width, never shrinks */}
                                     <div className={COLUMN_WIDTHS.total + " flex items-center justify-end h-12 font-mono text-white font-bold text-sm"}>
                                         {formatCurrency(item.total).replace(' DH', '')}
                                     </div>
 
+                                    {/* Delete button - fixed width, never shrinks */}
                                     <div className={COLUMN_WIDTHS.actions + " flex items-center justify-center h-12"}>
                                         <button
                                             onClick={() => removeItem(i)}
-                                            className="text-zinc-600 hover:text-red-500 transition-colors"
+                                            className="text-zinc-600 hover:text-red-500 transition-colors p-2"
                                         >
                                             <Trash2 size={18} />
                                         </button>
