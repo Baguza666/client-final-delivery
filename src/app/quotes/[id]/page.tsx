@@ -23,16 +23,30 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
 
     if (!quote) return notFound()
 
+    // 1. Resolve Workspace (DB or Default)
     let finalWorkspace = quote.workspace;
     if (!finalWorkspace) {
         const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single();
-        finalWorkspace = defaultWs;
+        finalWorkspace = defaultWs || {}; // Ensure it's an object if null
     }
+
+    // 2. 🔒 HARDCODE COMPANY DETAILS
+    // We overwrite the workspace object to ensure the Stamp/Header is always correct.
+    finalWorkspace = {
+        ...finalWorkspace,
+        name: "IMSAL SERVICES",
+        address: "7 Lotis Najmat El Janoub",
+        city: "El Jadida",
+        country: "Maroc",
+        phone: "+212(0)6 61 43 52 83",
+        email: "i.assal@imsalservices.com",
+        ice: "0014398551000071", // Included from your invoice screenshot
+    };
 
     return (
         <div className="bg-zinc-950 min-h-screen font-sans text-white">
 
-            {/* Print Styles matching Invoice Page exactly */}
+            {/* Print Styles */}
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Ballet&family=Inter:wght@400;500;600;700;800&display=swap');
                 
@@ -69,6 +83,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
                 <Sidebar />
             </div>
 
+            {/* Pass the Hardcoded Workspace to the Viewer */}
             <QuoteViewer
                 document={quote}
                 client={quote.client}
