@@ -25,25 +25,30 @@ export default async function PurchaseOrderPage({ params }: PageProps) {
     // 2. Fetch Client
     const { data: client } = await supabase.from('clients').select('*').eq('id', document.client_id).single()
 
-    // 3. Fetch Workspace & Override with Hardcoded Details
-    let { data: workspace } = await supabase.from('workspaces').select('*').eq('id', document.workspace_id).single()
+    // 3. Fetch Workspace (Database)
+    let { data: dbWorkspace } = await supabase.from('workspaces').select('*').eq('id', document.workspace_id).single()
 
-    // Fallback if no workspace is linked
-    if (!workspace) {
+    // Fallback if no workspace found
+    if (!dbWorkspace) {
         const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single()
-        workspace = defaultWs || {}
+        dbWorkspace = defaultWs || {}
     }
 
-    // 🔒 HARDCODE STAMP DETAILS
+    // 🔒 HARDCODE STAMP DETAILS (IMSAL SERVICES)
+    // We create a NEW variable 'finalWorkspace' to avoid conflicts
     const finalWorkspace = {
-        ...workspace,
+        ...(dbWorkspace || {}),
         name: "IMSAL SERVICES",
         address: "7 Lotis Najmat El Janoub",
         city: "El Jadida",
         country: "Maroc",
         phone: "+212(0)6 61 43 52 83",
         email: "i.assal@imsalservices.com",
-        ice: "0014398551000071",
+        ice: "002972127000089",       // ✅ ICE
+        rc: "19215",                 // ✅ RC
+        if: "000081196000005",       // ✅ I.F.
+        cnss: "5249290",             // ✅ CNSS
+        patente: "43003134",         // ✅ T.P.
     };
 
     return (
@@ -66,7 +71,7 @@ export default async function PurchaseOrderPage({ params }: PageProps) {
             <PurchaseOrderViewer
                 document={document}
                 client={client}
-                ws={finalWorkspace} // ✅ Passes the hardcoded details
+                ws={finalWorkspace}
             />
         </div>
     )

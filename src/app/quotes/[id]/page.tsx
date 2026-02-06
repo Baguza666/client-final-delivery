@@ -30,8 +30,8 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
         finalWorkspace = defaultWs || {}; // Ensure it's an object if null
     }
 
-    // 2. 🔒 HARDCODE COMPANY DETAILS
-    // We overwrite the workspace object to ensure the Stamp/Header is always correct.
+    // 2. 🔒 HARDCODE COMPANY DETAILS (STAMP FIX)
+    // Overwriting with correct legal numbers to ensure the stamp is always perfect
     finalWorkspace = {
         ...finalWorkspace,
         name: "IMSAL SERVICES",
@@ -40,7 +40,11 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
         country: "Maroc",
         phone: "+212(0)6 61 43 52 83",
         email: "i.assal@imsalservices.com",
-        ice: "0014398551000071", // Included from your invoice screenshot
+        ice: "002972127000089",       // ✅ ICE
+        rc: "19215",                 // ✅ RC
+        if: "000081196000005",       // ✅ I.F.
+        cnss: "5249290",             // ✅ CNSS
+        patente: "43003134",         // ✅ T.P. (Patente)
     };
 
     return (

@@ -50,16 +50,21 @@ export default async function DeliveryNotePage({ params }: PageProps) {
         workspace = defaultWs || {}
     }
 
-    // 🔒 HARDCODE STAMP DETAILS (IMSAL SERVICES)
+    // 🔒 HARDCODE COMPANY DETAILS (STAMP FIX)
     const finalWorkspace = {
-        ...workspace,
+        // Only spread the fetched data, do not reference 'finalWorkspace' here
+        ...(workspace || {}),
         name: "IMSAL SERVICES",
         address: "7 Lotis Najmat El Janoub",
         city: "El Jadida",
         country: "Maroc",
         phone: "+212(0)6 61 43 52 83",
         email: "i.assal@imsalservices.com",
-        ice: "0014398551000071",
+        ice: "002972127000089",       // ✅ ICE
+        rc: "19215",                 // ✅ RC
+        if: "000081196000005",       // ✅ I.F.
+        cnss: "5249290",             // ✅ CNSS
+        patente: "43003134",         // ✅ T.P. (Patente)
     };
 
     return (

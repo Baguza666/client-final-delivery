@@ -28,7 +28,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         finalWorkspace = defaultWs || {};
     }
 
-    // 2. 🔒 HARDCODE STAMP DETAILS (IMSAL SERVICES)
+    // 🔒 HARDCODE COMPANY DETAILS (STAMP FIX)
+    // ✅ FIX: Use assignment (=) instead of declaration (const) to avoid duplication error
     finalWorkspace = {
         ...finalWorkspace,
         name: "IMSAL SERVICES",
@@ -37,12 +38,15 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         country: "Maroc",
         phone: "+212(0)6 61 43 52 83",
         email: "i.assal@imsalservices.com",
-        ice: "0014398551000071",
+        ice: "002972127000089",       // ✅ ICE
+        rc: "19215",                 // ✅ RC
+        if: "000081196000005",       // ✅ I.F.
+        cnss: "5249290",             // ✅ CNSS
+        patente: "43003134",         // ✅ T.P. (Patente)
     };
 
     return (
         <div className="bg-zinc-950 min-h-screen font-sans text-white flex">
-
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Ballet&family=Inter:wght@400;500;600;700;800&display=swap');
                 
@@ -82,7 +86,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             <InvoiceViewer
                 invoice={invoice}
                 client={invoice.client}
-                ws={finalWorkspace} // ✅ Passes the hardcoded details
+                ws={finalWorkspace}
             />
         </div>
     )
