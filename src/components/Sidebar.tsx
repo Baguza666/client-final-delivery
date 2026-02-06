@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import OnboardingModal from './OnboardingModal';
 
-// ✅ UPDATED MENU: "Services" has been removed
+// ✅ FINAL MENU: Removed 'Services' and 'Rapports'
 const menuItems = [
     { name: 'Tableau de bord', icon: 'dashboard', path: '/' },
     { name: 'Clients', icon: 'groups', path: '/clients' },
@@ -14,9 +14,7 @@ const menuItems = [
     { name: 'Bons de Commande', icon: 'shopping_cart', path: '/purchase-orders' },
     { name: 'Bons de Livraison', icon: 'local_shipping', path: '/delivery-notes' },
     { name: 'Factures', icon: 'receipt_long', path: '/invoices' },
-    // { name: 'Services', icon: 'inventory_2', path: '/products' },  <-- DELETED
     { name: 'Dépenses', icon: 'account_balance_wallet', path: '/expenses' },
-    { name: 'Rapports', icon: 'bar_chart', path: '/reports' },
 ];
 
 export default function Sidebar() {
