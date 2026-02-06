@@ -11,11 +11,20 @@ import {
     Save,
     ChevronDown,
     ArrowLeft,
-    Receipt,
-    X
+    Receipt
 } from 'lucide-react'
 import Link from 'next/link'
 import { createQuote } from './QuoteActions'
+
+// Configuration des colonnes pour un contrôle total de la largeur
+const COLUMN_WIDTHS = {
+    description: 'flex-grow min-w-[300px]',
+    unit: 'w-24',
+    qty: 'w-24',
+    price: 'w-40',
+    total: 'w-40',
+    actions: 'w-12'
+}
 
 interface Client {
     id: string
@@ -63,7 +72,6 @@ export default function QuoteBuilder() {
         fetchClients()
     }, [supabase])
 
-    // Calculations
     const totals = useMemo(() => {
         const subtotal = items.reduce((sum, item) => sum + item.total, 0)
         const discountAmount = subtotal * (discountRate / 100)
@@ -73,7 +81,6 @@ export default function QuoteBuilder() {
         return { subtotal, discountAmount, netHT, tva, totalTTC }
     }, [items, discountRate])
 
-    // Handlers
     const updateItem = useCallback((index: number, field: keyof QuoteItem, value: string | number) => {
         setItems((prev) => {
             const updated = [...prev]
@@ -116,56 +123,54 @@ export default function QuoteBuilder() {
         setLoading(false)
     }
 
-    const formatCurrency = (value: number) => value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DH'
+    const formatCurrency = (value: number) =>
+        new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2 }).format(value) + ' DH'
 
     return (
-        <div className="min-h-screen bg-black pl-0 md:pl-72 text-white font-sans">
+        <div className="min-h-screen bg-black pl-72 text-white font-sans">
+            <div className="w-full p-8 space-y-8">
 
-            <div className="w-full max-w-[1920px] mx-auto p-4 md:p-8 space-y-6">
-
-                {/* --- HEADER --- */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+                {/* HEADER */}
+                <div className="flex items-center justify-between pb-6 border-b border-zinc-800">
                     <div className="flex items-center gap-4">
-                        <Link href="/quotes" className="p-2 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800">
+                        <Link href="/quotes" className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-all">
                             <ArrowLeft size={20} />
                         </Link>
-                        <div>
-                            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-                                <Receipt size={24} className="text-[#EAB308]" />
-                                Nouveau Devis
-                            </h1>
-                        </div>
+                        <h1 className="text-2xl font-bold flex items-center gap-3">
+                            <Receipt size={24} className="text-[#EAB308]" />
+                            Nouveau Devis
+                        </h1>
                     </div>
                 </div>
 
-                {/* --- CONFIGURATION BAR (Stack on mobile) --- */}
-                <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-5 shadow-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                        <div className="md:col-span-8 space-y-2">
+                {/* BARRE DE CONFIGURATION LARGE */}
+                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6">
+                    <div className="flex flex-wrap gap-8">
+                        <div className="flex-grow min-w-[300px] space-y-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Client</label>
-                            <div className="relative group">
+                            <div className="relative">
                                 <select
                                     value={clientId}
                                     onChange={(e) => setClientId(e.target.value)}
-                                    className="w-full h-12 bg-zinc-900 border border-zinc-800 rounded-lg px-4 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] appearance-none transition-all text-sm font-medium cursor-pointer hover:bg-zinc-800"
+                                    className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg px-4 text-white outline-none focus:border-[#EAB308] appearance-none transition-all font-medium"
                                 >
                                     <option value="">-- Sélectionner un client --</option>
                                     {clients.map((c) => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
                                 </select>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none group-hover:text-white" size={16} />
+                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
                             </div>
                         </div>
 
-                        <div className="md:col-span-4 space-y-2">
+                        <div className="w-64 space-y-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Date d'émission</label>
                             <div className="relative">
                                 <input
                                     type="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full h-12 bg-zinc-900 border border-zinc-800 rounded-lg px-4 pl-12 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm font-medium hover:bg-zinc-800"
+                                    className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg px-4 pl-12 text-white outline-none focus:border-[#EAB308] transition-all font-medium"
                                 />
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={18} />
                             </div>
@@ -173,220 +178,135 @@ export default function QuoteBuilder() {
                     </div>
                 </div>
 
-                {/* --- WORKSPACE GRID (Stack on mobile) --- */}
-                <div className="flex flex-col xl:flex-row gap-6 items-start">
+                {/* WORKSPACE PRINCIPAL : TABLE LARGE */}
+                <div className="flex flex-col xl:flex-row gap-8 items-start">
 
-                    {/* LEFT: ITEMS LIST (Flexible width) */}
-                    <div className="w-full xl:flex-1 bg-[#0A0A0A] border border-zinc-800 rounded-xl shadow-sm flex flex-col overflow-hidden min-h-[500px]">
+                    {/* SECTION ARTICLES (80% Largeur) */}
+                    <div className="flex-grow w-full xl:w-4/5 bg-zinc-900/40 border border-zinc-800 rounded-xl shadow-sm overflow-hidden">
 
-                        {/* Desktop Header (Hidden on Mobile) */}
-                        <div className="hidden lg:grid grid-cols-12 gap-4 px-6 py-4 bg-zinc-900/50 border-b border-zinc-800 text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
-                            <div className="col-span-5">Description</div>
-                            <div className="col-span-1 text-center">Unité</div>
-                            <div className="col-span-2 text-center">Qté</div>
-                            <div className="col-span-2 text-right">Prix Uni.</div>
-                            <div className="col-span-2 text-right">Total HT</div>
+                        {/* EN-TÊTE DE TABLE */}
+                        <div className="flex gap-4 px-6 py-4 bg-zinc-900/80 border-b border-zinc-800 text-[11px] uppercase font-bold text-zinc-500 tracking-wider">
+                            <div className={COLUMN_WIDTHS.description}>Description / Service</div>
+                            <div className={COLUMN_WIDTHS.unit + " text-center"}>Unité</div>
+                            <div className={COLUMN_WIDTHS.qty + " text-center"}>Qté</div>
+                            <div className={COLUMN_WIDTHS.price + " text-right"}>Prix Unitaire</div>
+                            <div className={COLUMN_WIDTHS.total + " text-right"}>Total HT</div>
+                            <div className={COLUMN_WIDTHS.actions}></div>
                         </div>
 
-                        <div className="p-4 space-y-4 lg:space-y-2">
+                        {/* LISTE DES ARTICLES */}
+                        <div className="p-4 space-y-3">
                             {items.map((item, i) => (
-                                <div key={i} className="group relative bg-zinc-900/20 p-4 lg:p-2 rounded-xl border border-zinc-800/50 hover:border-zinc-700 transition-all">
+                                <div key={i} className="flex gap-4 items-start bg-zinc-800/30 p-3 rounded-xl border border-transparent hover:border-zinc-700 transition-all">
 
-                                    {/* --- MOBILE LAYOUT (<1024px) --- */}
-                                    <div className="lg:hidden flex flex-col gap-4">
-                                        <div className="flex justify-between items-start">
-                                            <span className="text-xs font-bold text-zinc-500">LIGNE #{i + 1}</span>
-                                            <button onClick={() => removeItem(i)} className="text-red-500 p-2 bg-red-500/10 rounded-lg">
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-
+                                    <div className={COLUMN_WIDTHS.description}>
                                         <textarea
                                             rows={2}
                                             value={item.description}
                                             onChange={(e) => updateItem(i, 'description', e.target.value)}
-                                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white text-sm"
-                                            placeholder="Désignation..."
+                                            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-white placeholder-zinc-600 outline-none focus:border-[#EAB308] transition-all text-sm font-medium resize-none"
+                                            placeholder="Détail de la prestation..."
                                         />
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="text-[10px] text-zinc-500 uppercase font-bold">Unité</label>
-                                                <input
-                                                    value={item.unit}
-                                                    onChange={(e) => updateItem(i, 'unit', e.target.value)}
-                                                    className="w-full h-10 bg-zinc-800 border border-zinc-700 rounded-lg px-3 text-white text-sm uppercase"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] text-zinc-500 uppercase font-bold">Qté</label>
-                                                <input
-                                                    type="number"
-                                                    value={item.quantity}
-                                                    onChange={(e) => updateItem(i, 'quantity', e.target.value)}
-                                                    className="w-full h-10 bg-zinc-800 border border-zinc-700 rounded-lg px-3 text-white text-sm font-mono"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="text-[10px] text-zinc-500 uppercase font-bold">Prix Unitaire</label>
-                                                <input
-                                                    type="number"
-                                                    value={item.unit_price}
-                                                    onChange={(e) => updateItem(i, 'unit_price', e.target.value)}
-                                                    className="w-full h-10 bg-zinc-800 border border-zinc-700 rounded-lg px-3 text-white text-sm font-mono"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] text-zinc-500 uppercase font-bold text-right block">Total</label>
-                                                <div className="h-10 flex items-center justify-end font-mono text-white font-bold bg-zinc-900/50 rounded-lg px-3 border border-zinc-800">
-                                                    {formatCurrency(item.total).replace(' DH', '')}
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
 
-                                    {/* --- DESKTOP LAYOUT (>=1024px) --- */}
-                                    <div className="hidden lg:grid grid-cols-12 gap-4 items-start">
-                                        <div className="col-span-5">
-                                            <textarea
-                                                rows={1}
-                                                value={item.description}
-                                                onChange={(e) => updateItem(i, 'description', e.target.value)}
-                                                className="w-full min-h-[48px] bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white placeholder-zinc-500 outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm resize-none font-medium leading-normal"
-                                                placeholder="Désignation..."
-                                            />
-                                        </div>
-                                        <div className="col-span-1">
-                                            <input
-                                                value={item.unit}
-                                                onChange={(e) => updateItem(i, 'unit', e.target.value)}
-                                                className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white text-sm font-bold uppercase focus:border-[#EAB308] outline-none"
-                                            />
-                                        </div>
-                                        <div className="col-span-2">
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                value={item.quantity}
-                                                onChange={(e) => updateItem(i, 'quantity', e.target.value)}
-                                                className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none"
-                                            />
-                                        </div>
-                                        <div className="col-span-2">
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={item.unit_price}
-                                                onChange={(e) => updateItem(i, 'unit_price', e.target.value)}
-                                                className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-right pr-3 text-white font-mono text-sm focus:border-[#EAB308] outline-none"
-                                            />
-                                        </div>
-                                        <div className="col-span-2 flex items-center justify-between pl-4 h-12 bg-zinc-900/30 rounded-lg border border-zinc-800/50">
-                                            <span className="font-mono text-white font-bold text-sm whitespace-nowrap">
-                                                {formatCurrency(item.total).replace(' DH', '')}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeItem(i)}
-                                                className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 p-2 hover:bg-zinc-800 rounded mr-1 transition-all"
-                                            >
-                                                <X size={16} />
-                                            </button>
-                                        </div>
+                                    <div className={COLUMN_WIDTHS.unit}>
+                                        <input
+                                            value={item.unit}
+                                            onChange={(e) => updateItem(i, 'unit', e.target.value)}
+                                            className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg text-center text-white text-xs font-bold uppercase focus:border-[#EAB308] outline-none"
+                                        />
                                     </div>
 
+                                    <div className={COLUMN_WIDTHS.qty}>
+                                        <input
+                                            type="number"
+                                            value={item.quantity}
+                                            onChange={(e) => updateItem(i, 'quantity', e.target.value)}
+                                            className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none"
+                                        />
+                                    </div>
+
+                                    <div className={COLUMN_WIDTHS.price}>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={item.unit_price}
+                                            onChange={(e) => updateItem(i, 'unit_price', e.target.value)}
+                                            className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg text-right pr-4 text-white font-mono text-sm focus:border-[#EAB308] outline-none"
+                                        />
+                                    </div>
+
+                                    <div className={COLUMN_WIDTHS.total + " flex items-center justify-end h-12 font-mono text-white font-bold text-sm"}>
+                                        {formatCurrency(item.total).replace(' DH', '')}
+                                    </div>
+
+                                    <div className={COLUMN_WIDTHS.actions + " flex items-center justify-center h-12"}>
+                                        <button
+                                            onClick={() => removeItem(i)}
+                                            className="text-zinc-600 hover:text-red-500 transition-colors"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
-                        </div>
 
-                        <div className="p-4 border-t border-zinc-800 bg-zinc-900/20">
                             <button
-                                type="button"
                                 onClick={addItem}
-                                className="text-sm font-bold uppercase tracking-wide text-zinc-500 hover:text-[#EAB308] flex items-center gap-2 hover:bg-[#EAB308]/10 px-4 py-3 rounded-lg transition-all w-full border border-dashed border-zinc-800 hover:border-[#EAB308]/30 justify-center"
+                                className="w-full py-4 mt-4 border border-dashed border-zinc-700 rounded-xl text-zinc-500 hover:text-[#EAB308] hover:border-[#EAB308] hover:bg-[#EAB308]/5 transition-all text-sm font-bold uppercase tracking-wide flex items-center justify-center gap-2"
                             >
-                                <Plus size={16} />
-                                Ajouter une ligne
+                                <Plus size={18} />
+                                Ajouter un article
                             </button>
                         </div>
                     </div>
 
-                    {/* RIGHT: TOTALS PANEL (Full width on mobile, side on desktop) */}
-                    <div className="w-full xl:w-[400px] xl:sticky xl:top-6 space-y-6">
-                        <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-6 md:p-8 shadow-sm">
-                            <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-6 flex items-center gap-2">
+                    {/* SECTION RÉCAPITULATIF (20% Largeur) */}
+                    <div className="w-full xl:w-[380px] space-y-6">
+                        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-8 shadow-sm">
+                            <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-8 flex items-center gap-2">
                                 <Calculator size={18} className="text-[#EAB308]" />
                                 Récapitulatif
                             </h2>
 
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-zinc-400">Total HT</span>
-                                    <span className="text-white font-mono font-medium">{formatCurrency(totals.subtotal)}</span>
+                            <div className="space-y-6">
+                                <div className="flex justify-between text-sm text-zinc-400">
+                                    <span>Total HT</span>
+                                    <span className="text-white font-mono">{formatCurrency(totals.subtotal)}</span>
                                 </div>
 
-                                <div className="flex justify-between items-center text-sm group">
-                                    <span className="text-zinc-400 group-focus-within:text-[#EAB308] transition-colors">Remise (%)</span>
-                                    <div className="flex items-center gap-3">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            placeholder="0"
-                                            value={discountRate}
-                                            onChange={(e) => setDiscountRate(parseFloat(e.target.value) || 0)}
-                                            className="w-16 h-8 bg-zinc-900 border border-zinc-800 rounded text-center text-white text-sm font-mono focus:border-[#EAB308] outline-none transition-colors"
-                                        />
-                                        {discountRate > 0 && (
-                                            <span className="text-zinc-500 font-mono text-xs">
-                                                -{formatCurrency(totals.discountAmount)}
-                                            </span>
-                                        )}
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-zinc-400">Remise (%)</span>
+                                    <input
+                                        type="number"
+                                        value={discountRate}
+                                        onChange={(e) => setDiscountRate(parseFloat(e.target.value) || 0)}
+                                        className="w-16 h-8 bg-zinc-900 border border-zinc-700 rounded text-center text-white text-sm font-mono focus:border-[#EAB308] outline-none"
+                                    />
+                                </div>
+
+                                <div className="border-t border-zinc-800 pt-6">
+                                    <div className="flex justify-between text-sm text-zinc-400 mb-2">
+                                        <span>TVA (20%)</span>
+                                        <span className="text-white font-mono">{formatCurrency(totals.tva)}</span>
                                     </div>
-                                </div>
-
-                                <div className="border-t border-dashed border-zinc-800 my-2"></div>
-
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-zinc-400">Net HT</span>
-                                    <span className="text-white font-mono font-medium">{formatCurrency(totals.netHT)}</span>
-                                </div>
-
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-zinc-400">TVA (20%)</span>
-                                    <span className="text-white font-mono font-medium">{formatCurrency(totals.tva)}</span>
-                                </div>
-
-                                <div className="pt-6 mt-4 border-t border-zinc-800">
-                                    <div className="flex flex-col items-end gap-1">
-                                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Net à payer</span>
-                                        {/* ✅ FIX: Wrap properly on small screens */}
-                                        <span className="text-2xl md:text-3xl font-black text-[#EAB308] font-mono tracking-tight text-right break-words w-full">
+                                    <div className="flex justify-between items-end mt-8">
+                                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Net à Payer</span>
+                                        <span className="text-3xl font-black text-[#EAB308] font-mono tracking-tight">
                                             {formatCurrency(totals.totalTTC)}
                                         </span>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="mt-8">
                                 <button
-                                    type="button"
                                     onClick={handleSubmit}
                                     disabled={loading}
-                                    className="w-full bg-[#EAB308] text-black font-black h-14 rounded-xl hover:bg-[#FACC15] hover:shadow-[0_0_30px_rgba(234,179,8,0.3)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none text-sm uppercase tracking-wider transform active:scale-[0.98]"
+                                    className="w-full mt-10 bg-[#EAB308] text-black font-black h-14 rounded-xl hover:bg-[#FACC15] transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider disabled:opacity-50"
                                 >
-                                    {loading ? (
-                                        <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                                    ) : (
-                                        <>
-                                            <Save size={20} />
-                                            Enregistrer le devis
-                                        </>
-                                    )}
+                                    {loading ? "Enregistrement..." : <>
+                                        <Save size={20} />
+                                        Enregistrer le devis
+                                    </>}
                                 </button>
                             </div>
                         </div>
