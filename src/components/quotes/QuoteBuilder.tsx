@@ -118,43 +118,39 @@ export default function QuoteBuilder() {
 
     return (
         <div className="min-h-screen bg-black pl-72 text-white">
-            <div className="max-w-7xl mx-auto p-10">
+            <div className="w-full h-full p-8">
 
                 {/* --- HEADER --- */}
-                <div className="flex justify-between items-end mb-10">
-                    <div>
-                        <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Éditeur de Devis</h1>
-                        <p className="text-zinc-500 mt-2 font-medium flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-[#EAB308]"></span>
-                            Création d'une nouvelle proposition commerciale
-                        </p>
-                    </div>
+                <div className="mb-8">
+                    <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Nouvelle Proposition</h1>
+                    <p className="text-zinc-500 mt-2 font-medium flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#EAB308]"></span>
+                        Création d'un devis client
+                    </p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* --- MAIN GRID --- */}
+                <div className="flex flex-col xl:flex-row gap-6">
 
-                    {/* --- LEFT COLUMN (Form) --- */}
-                    <div className="lg:col-span-2 space-y-8">
+                    {/* --- LEFT COLUMN (Inputs & Items) --- */}
+                    <div className="flex-1 space-y-6">
 
-                        {/* 1. Client & Date Card */}
-                        <div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 shadow-xl relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#EAB308]/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-
+                        {/* 1. INFO CARD */}
+                        <div className="bg-[#111] border border-zinc-800 rounded-2xl p-8 shadow-xl">
                             <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                                <User size={18} className="text-[#EAB308]" />
-                                Informations Client
+                                <User size={20} className="text-[#EAB308]" />
+                                Informations
                             </h2>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-2 gap-8">
                                 <div className="space-y-2">
-                                    <label className="text-[11px] font-bold uppercase text-zinc-500 tracking-wider ml-1">Client</label>
+                                    <label className="text-xs font-bold uppercase text-zinc-500 tracking-wider ml-1">Client</label>
                                     <div className="relative">
                                         <select
                                             value={clientId}
                                             onChange={(e) => setClientId(e.target.value)}
-                                            className="w-full bg-black border border-zinc-800 rounded-xl p-4 pl-4 pr-10 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] appearance-none transition-all font-medium"
+                                            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-4 pr-10 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] appearance-none transition-all font-medium text-sm"
                                         >
-                                            <option value="">-- Sélectionner --</option>
+                                            <option value="">-- Sélectionner un client --</option>
                                             {clients.map((c) => (
                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                             ))}
@@ -162,15 +158,14 @@ export default function QuoteBuilder() {
                                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
                                     </div>
                                 </div>
-
                                 <div className="space-y-2">
-                                    <label className="text-[11px] font-bold uppercase text-zinc-500 tracking-wider ml-1">Date d'émission</label>
+                                    <label className="text-xs font-bold uppercase text-zinc-500 tracking-wider ml-1">Date d'émission</label>
                                     <div className="relative">
                                         <input
                                             type="date"
                                             value={date}
                                             onChange={(e) => setDate(e.target.value)}
-                                            className="w-full bg-black border border-zinc-800 rounded-xl p-4 pl-12 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all font-medium"
+                                            className="w-full bg-zinc-900 border border-zinc-700 rounded-xl p-4 pl-12 text-white outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all font-medium text-sm"
                                         />
                                         <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
                                     </div>
@@ -178,40 +173,40 @@ export default function QuoteBuilder() {
                             </div>
                         </div>
 
-                        {/* 2. Items Table Card */}
-                        <div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 shadow-xl">
+                        {/* 2. ITEMS CARD */}
+                        <div className="bg-[#111] border border-zinc-800 rounded-2xl p-8 shadow-xl">
                             <div className="flex justify-between items-center mb-6">
                                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                                    <FileText size={18} className="text-[#EAB308]" />
-                                    Articles & Services
+                                    <FileText size={20} className="text-[#EAB308]" />
+                                    Articles & Prestations
                                 </h2>
-                                <span className="text-xs text-zinc-500 font-mono bg-zinc-900 px-2 py-1 rounded border border-zinc-800">
-                                    {items.length} Ligne{items.length > 1 ? 's' : ''}
+                                <span className="text-xs font-mono bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800 text-zinc-400">
+                                    {items.length} Ligne(s)
                                 </span>
                             </div>
 
                             <div className="space-y-3">
-                                {/* Table Header */}
-                                <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
+                                {/* Table Headers - ALIGNED WITH GRID */}
+                                <div className="grid grid-cols-12 gap-4 px-4 py-2 text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
                                     <div className="col-span-6">Description</div>
                                     <div className="col-span-1 text-center">Unité</div>
                                     <div className="col-span-1 text-center">Qté</div>
-                                    <div className="col-span-2 text-center">Prix Uni.</div>
+                                    <div className="col-span-2 text-center">Prix Unitaire</div>
                                     <div className="col-span-2 text-right">Total HT</div>
                                 </div>
 
-                                {/* Table Rows */}
+                                {/* Items List */}
                                 {items.map((item, i) => (
-                                    <div key={i} className="group relative grid grid-cols-12 gap-4 items-start p-2 rounded-xl hover:bg-zinc-900/30 border border-transparent hover:border-zinc-800 transition-all duration-200">
+                                    <div key={i} className="group grid grid-cols-12 gap-4 items-center bg-zinc-900/30 p-3 rounded-xl hover:bg-zinc-900/80 border border-transparent hover:border-zinc-700 transition-all duration-200">
 
                                         {/* Description */}
                                         <div className="col-span-6">
-                                            <textarea
-                                                rows={1}
+                                            <input
+                                                type="text"
                                                 value={item.description}
                                                 onChange={(e) => updateItem(i, 'description', e.target.value)}
-                                                className="w-full bg-transparent border-b border-zinc-800 focus:border-[#EAB308] text-white p-2 outline-none resize-none transition-colors placeholder-zinc-700 leading-relaxed"
-                                                placeholder="Description de la prestation..."
+                                                className="w-full bg-transparent border-b border-zinc-700 focus:border-[#EAB308] text-white p-2 outline-none transition-colors placeholder-zinc-600 font-medium"
+                                                placeholder="Description de l'article..."
                                             />
                                         </div>
 
@@ -220,19 +215,18 @@ export default function QuoteBuilder() {
                                             <input
                                                 value={item.unit}
                                                 onChange={(e) => updateItem(i, 'unit', e.target.value)}
-                                                className="w-full bg-black/30 border border-zinc-800 rounded-lg py-2 text-center text-zinc-400 text-xs uppercase focus:border-[#EAB308] outline-none"
-                                                placeholder="U"
+                                                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-2.5 text-center text-white text-sm font-bold uppercase focus:border-[#EAB308] outline-none"
                                             />
                                         </div>
 
-                                        {/* Qty */}
+                                        {/* Quantity */}
                                         <div className="col-span-1">
                                             <input
                                                 type="number"
                                                 min="0"
                                                 value={item.quantity}
                                                 onChange={(e) => updateItem(i, 'quantity', e.target.value)}
-                                                className="w-full bg-black/30 border border-zinc-800 rounded-lg py-2 text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none"
+                                                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-2.5 text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none"
                                             />
                                         </div>
 
@@ -244,23 +238,21 @@ export default function QuoteBuilder() {
                                                 step="0.01"
                                                 value={item.unit_price}
                                                 onChange={(e) => updateItem(i, 'unit_price', e.target.value)}
-                                                className="w-full bg-black/30 border border-zinc-800 rounded-lg py-2 text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none"
+                                                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg py-2.5 text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none"
                                             />
                                         </div>
 
-                                        {/* Total */}
-                                        <div className="col-span-2 flex items-center justify-end h-full gap-3">
-                                            <span className="font-mono text-white font-medium text-sm">
+                                        {/* Total & Delete */}
+                                        <div className="col-span-2 flex items-center justify-end gap-4">
+                                            <span className="font-mono text-white font-bold text-sm">
                                                 {formatCurrency(item.total).replace(' DH', '')}
                                             </span>
-
-                                            {/* Delete Button (Hover Only) */}
                                             <button
                                                 type="button"
                                                 onClick={() => removeItem(i)}
-                                                className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-600 hover:text-red-500 hover:bg-red-500/10 rounded transition-all"
+                                                className="text-zinc-600 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-all"
                                             >
-                                                <Trash2 size={14} />
+                                                <Trash2 size={16} />
                                             </button>
                                         </div>
                                     </div>
@@ -269,33 +261,33 @@ export default function QuoteBuilder() {
                                 <button
                                     type="button"
                                     onClick={addItem}
-                                    className="w-full py-3 mt-4 border border-dashed border-zinc-800 rounded-xl text-zinc-500 hover:text-[#EAB308] hover:border-[#EAB308]/30 hover:bg-[#EAB308]/5 transition-all text-sm font-bold flex items-center justify-center gap-2"
+                                    className="w-full py-4 mt-6 border border-dashed border-zinc-800 rounded-xl text-zinc-500 hover:text-[#EAB308] hover:border-[#EAB308] hover:bg-[#EAB308]/5 transition-all text-sm font-bold uppercase tracking-wide flex items-center justify-center gap-2"
                                 >
-                                    <Plus size={16} />
+                                    <Plus size={18} />
                                     Ajouter une ligne
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* --- RIGHT COLUMN (Totals & Actions) --- */}
-                    <div className="space-y-6">
+                    {/* --- RIGHT COLUMN (Fixed Width Sidebar) --- */}
+                    <div className="w-full xl:w-96 space-y-6">
 
-                        {/* Summary Card */}
+                        {/* TOTALS CARD */}
                         <div className="bg-[#111] border border-zinc-800 rounded-2xl p-6 shadow-xl sticky top-6">
                             <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                                <Calculator size={18} className="text-[#EAB308]" />
-                                Total
+                                <Calculator size={20} className="text-[#EAB308]" />
+                                Récapitulatif
                             </h2>
 
                             <div className="space-y-4">
                                 <div className="flex justify-between text-sm text-zinc-400">
                                     <span>Total HT</span>
-                                    <span className="text-white font-mono">{formatCurrency(totals.subtotal)}</span>
+                                    <span className="text-white font-mono font-medium">{formatCurrency(totals.subtotal)}</span>
                                 </div>
 
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className="text-zinc-400">Remise</span>
+                                    <span className="text-zinc-400">Remise (%)</span>
                                     <div className="flex items-center gap-2">
                                         <input
                                             type="number"
@@ -303,57 +295,56 @@ export default function QuoteBuilder() {
                                             max="100"
                                             value={discountRate}
                                             onChange={(e) => setDiscountRate(parseFloat(e.target.value) || 0)}
-                                            className="w-12 bg-black border border-zinc-800 text-center text-white rounded py-1 text-xs font-mono focus:border-[#EAB308] outline-none"
+                                            className="w-16 bg-zinc-900 border border-zinc-700 text-center text-white rounded-lg py-1 text-sm font-mono focus:border-[#EAB308] outline-none"
                                         />
-                                        <span className="text-zinc-600">%</span>
                                     </div>
                                 </div>
 
                                 {discountRate > 0 && (
-                                    <div className="flex justify-between text-sm text-red-400/80 bg-red-500/5 p-2 rounded">
+                                    <div className="flex justify-between text-sm text-red-400 bg-red-500/10 p-2 rounded-lg">
                                         <span>Montant Remise</span>
                                         <span className="font-mono">-{formatCurrency(totals.discountAmount)}</span>
                                     </div>
                                 )}
 
-                                <div className="flex justify-between text-sm text-zinc-400 pt-2 border-t border-zinc-800/50">
+                                <div className="flex justify-between text-sm text-zinc-400 pt-3 border-t border-zinc-800">
                                     <span>Net HT</span>
-                                    <span className="text-white font-mono">{formatCurrency(totals.netHT)}</span>
+                                    <span className="text-white font-mono font-medium">{formatCurrency(totals.netHT)}</span>
                                 </div>
 
                                 <div className="flex justify-between text-sm text-zinc-400">
                                     <span>TVA (20%)</span>
-                                    <span className="text-white font-mono">{formatCurrency(totals.tva)}</span>
+                                    <span className="text-white font-mono font-medium">{formatCurrency(totals.tva)}</span>
                                 </div>
 
-                                <div className="pt-6 mt-4 border-t border-dashed border-zinc-800">
-                                    <div className="flex justify-between items-end">
-                                        <span className="text-lg font-bold text-white">Total TTC</span>
-                                        <span className="text-2xl font-black text-[#EAB308] font-mono tracking-tight">
+                                <div className="pt-6 mt-4 border-t-2 border-dashed border-zinc-800">
+                                    <div className="flex flex-col gap-1 text-right">
+                                        <span className="text-xs uppercase font-bold text-zinc-500 tracking-wider">Total TTC</span>
+                                        <span className="text-3xl font-black text-[#EAB308] font-mono tracking-tight">
                                             {formatCurrency(totals.totalTTC)}
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Action Button */}
                             <button
                                 type="button"
                                 onClick={handleSubmit}
                                 disabled={loading}
-                                className="w-full mt-8 bg-gradient-to-r from-[#EAB308] to-[#FACC15] text-black font-black py-4 rounded-xl hover:shadow-[0_0_20px_rgba(234,179,8,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+                                className="w-full mt-8 bg-[#EAB308] text-black font-black py-4 rounded-xl hover:bg-[#FACC15] hover:shadow-[0_0_20px_rgba(234,179,8,0.4)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none text-sm uppercase tracking-wide"
                             >
                                 {loading ? (
                                     <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
                                 ) : (
                                     <>
-                                        <Save size={20} />
-                                        ENREGISTRER LE DEVIS
+                                        <Save size={18} />
+                                        Valider le Devis
                                     </>
                                 )}
                             </button>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
