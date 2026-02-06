@@ -23,17 +23,16 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
 
     if (!quote) return notFound()
 
-    // 1. Resolve Workspace (DB or Default)
-    let finalWorkspace = quote.workspace;
-    if (!finalWorkspace) {
+    // 1. Resolve Base Workspace
+    let baseWorkspace = quote.workspace;
+    if (!baseWorkspace) {
         const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single();
-        finalWorkspace = defaultWs || {}; // Ensure it's an object if null
+        baseWorkspace = defaultWs || {};
     }
 
-    // 2. 🔒 HARDCODE COMPANY DETAILS (STAMP FIX)
-    // Overwriting with correct legal numbers to ensure the stamp is always perfect
-    finalWorkspace = {
-        ...finalWorkspace,
+    // 2. Create Final Workspace with Hardcoded Details
+    const finalWorkspace = {
+        ...baseWorkspace, // ✅ Spread the base variable, not itself
         name: "IMSAL SERVICES",
         address: "7 Lotis Najmat El Janoub",
         city: "El Jadida",
@@ -42,9 +41,17 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
         email: "i.assal@imsalservices.com",
         ice: "002972127000089",       // ✅ ICE
         rc: "19215",                 // ✅ RC
-        if: "000081196000005",       // ✅ I.F.
+
+        // 🔹 Identifiant Fiscal (Aliases)
+        if: "000081196000005",
+        tax_id: "000081196000005",
+        fiscal_id: "000081196000005",
+
         cnss: "5249290",             // ✅ CNSS
-        patente: "43003134",         // ✅ T.P. (Patente)
+
+        // 🔹 Patente (Aliases)
+        patente: "43003134",
+        tp: "43003134",
     };
 
     return (

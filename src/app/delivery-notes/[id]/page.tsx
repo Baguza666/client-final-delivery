@@ -62,9 +62,17 @@ export default async function DeliveryNotePage({ params }: PageProps) {
         email: "i.assal@imsalservices.com",
         ice: "002972127000089",       // ✅ ICE
         rc: "19215",                 // ✅ RC
-        if: "000081196000005",       // ✅ I.F.
+
+        // 🔹 Identifiant Fiscal (Aliases added to ensure viewer finds it)
+        if: "000081196000005",
+        tax_id: "000081196000005",
+        fiscal_id: "000081196000005",
+
         cnss: "5249290",             // ✅ CNSS
-        patente: "43003134",         // ✅ T.P. (Patente)
+
+        // 🔹 Patente / Taxe Professionnelle (Aliases added)
+        patente: "43003134",
+        tp: "43003134",
     };
 
     return (

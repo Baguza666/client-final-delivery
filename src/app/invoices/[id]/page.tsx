@@ -21,28 +21,32 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
     if (!invoice) return notFound()
 
-    // 1. Resolve Workspace
-    let finalWorkspace = invoice.workspace;
-    if (!finalWorkspace) {
+    // ... inside InvoiceDetailPage ...
+
+    // 1. Resolve Base Workspace
+    let baseWorkspace = invoice.workspace;
+    if (!baseWorkspace) {
         const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single();
-        finalWorkspace = defaultWs || {};
+        baseWorkspace = defaultWs || {};
     }
 
-    // 🔒 HARDCODE COMPANY DETAILS (STAMP FIX)
-    // ✅ FIX: Use assignment (=) instead of declaration (const) to avoid duplication error
-    finalWorkspace = {
-        ...finalWorkspace,
+    // 2. Hardcode Details
+    const finalWorkspace = {
+        ...baseWorkspace, // ✅ Correct variable spread
         name: "IMSAL SERVICES",
         address: "7 Lotis Najmat El Janoub",
         city: "El Jadida",
         country: "Maroc",
         phone: "+212(0)6 61 43 52 83",
         email: "i.assal@imsalservices.com",
-        ice: "002972127000089",       // ✅ ICE
-        rc: "19215",                 // ✅ RC
-        if: "000081196000005",       // ✅ I.F.
-        cnss: "5249290",             // ✅ CNSS
-        patente: "43003134",         // ✅ T.P. (Patente)
+        ice: "002972127000089",
+        rc: "19215",
+        if: "000081196000005",
+        tax_id: "000081196000005",
+        fiscal_id: "000081196000005",
+        cnss: "5249290",
+        patente: "43003134",
+        tp: "43003134",
     };
 
     return (

@@ -25,30 +25,32 @@ export default async function PurchaseOrderPage({ params }: PageProps) {
     // 2. Fetch Client
     const { data: client } = await supabase.from('clients').select('*').eq('id', document.client_id).single()
 
-    // 3. Fetch Workspace (Database)
-    let { data: dbWorkspace } = await supabase.from('workspaces').select('*').eq('id', document.workspace_id).single()
+    // ... inside PurchaseOrderPage ...
 
-    // Fallback if no workspace found
+    // Fetch Workspace
+    let { data: dbWorkspace } = await supabase.from('workspaces').select('*').eq('id', document.workspace_id).single()
     if (!dbWorkspace) {
         const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single()
         dbWorkspace = defaultWs || {}
     }
 
-    // 🔒 HARDCODE STAMP DETAILS (IMSAL SERVICES)
-    // We create a NEW variable 'finalWorkspace' to avoid conflicts
+    // Hardcode Details
     const finalWorkspace = {
-        ...(dbWorkspace || {}),
+        ...(dbWorkspace || {}), // ✅ Correct variable spread
         name: "IMSAL SERVICES",
         address: "7 Lotis Najmat El Janoub",
         city: "El Jadida",
         country: "Maroc",
         phone: "+212(0)6 61 43 52 83",
         email: "i.assal@imsalservices.com",
-        ice: "002972127000089",       // ✅ ICE
-        rc: "19215",                 // ✅ RC
-        if: "000081196000005",       // ✅ I.F.
-        cnss: "5249290",             // ✅ CNSS
-        patente: "43003134",         // ✅ T.P.
+        ice: "002972127000089",
+        rc: "19215",
+        if: "000081196000005",
+        tax_id: "000081196000005",
+        fiscal_id: "000081196000005",
+        cnss: "5249290",
+        patente: "43003134",
+        tp: "43003134",
     };
 
     return (
