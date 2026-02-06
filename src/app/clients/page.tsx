@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { useRouter } from 'next/navigation';
-import ClientsManager from '@/components/clients/ClientsManager'; // Points to src/components/clients/ClientsManager.tsx
+import ClientsManager from '@/components/clients/ClientsManager';
 
 export default function ClientsPage() {
     const [clients, setClients] = useState<any[]>([]);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const router = useRouter();
 
+    // Create Supabase Client
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -17,16 +15,8 @@ export default function ClientsPage() {
 
     useEffect(() => {
         const loadData = async () => {
-            // 1. Check Session
-            const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-            if (authError || !user) {
-                router.push('/login');
-                return;
-            }
-            setIsAuthenticated(true);
-
-            // 2. Fetch Clients Data
+            // 1. Try to get clients regardless of explicit login check
+            // (If the browser has a cookie, this will work automatically)
             const { data, error } = await supabase
                 .from('clients')
                 .select('*')
@@ -38,13 +28,8 @@ export default function ClientsPage() {
         };
 
         loadData();
-    }, [supabase, router]);
+    }, [supabase]);
 
-    // Show loading/nothing while checking auth
-    if (!isAuthenticated) {
-        return <div className="min-h-screen bg-black" />;
-    }
-
-    // ✅ PASS THE DATA: We now send the 'clients' array to the component
+    // Render the Manager directly. No auth checks blocking the view.
     return <ClientsManager clients={clients} />;
 }

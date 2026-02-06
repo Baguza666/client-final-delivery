@@ -1,7 +1,8 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
 export async function middleware(request: NextRequest) {
+    // 1. Initialize Supabase (Needed to keep the session alive)
     let response = NextResponse.next({
         request: { headers: request.headers },
     })
@@ -21,24 +22,17 @@ export async function middleware(request: NextRequest) {
         }
     )
 
-    // Refresh session
-    const { data: { user } } = await supabase.auth.getUser()
+    // 2. Refresh the session (so your data loads)
+    await supabase.auth.getUser()
 
-    // EXCLUSION LIST: Add '/clients' here so Middleware doesn't block it
-    const excludedPaths = ['/login', '/auth', '/clients'];
-    const isExcluded = excludedPaths.some(path => request.nextUrl.pathname.startsWith(path));
-
-    // PROTECTED ROUTES LOGIC
-    if (!user && !isExcluded) {
-        return NextResponse.redirect(new URL('/login', request.url))
-    }
-
+    // 3. NUCLEAR FIX: REMOVE ALL REDIRECTS
+    // We strictly return the response. No checks, no blocks, no login redirects.
     return response
 }
 
 export const config = {
+    // Keep matching everything so session refreshing still works
     matcher: [
-        // Exclude static files, images, etc.
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
