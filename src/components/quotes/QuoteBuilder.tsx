@@ -315,59 +315,7 @@ export default function QuoteBuilder() {
                         </>}
                     </button>
                 </div>
-                {/* SECTION RÉCAPITULATIF (20% Largeur) */}
-                <div className="w-full xl:w-[380px] space-y-6">
-                    <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-8 shadow-sm">
-                        <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-8 flex items-center gap-2">
-                            <Calculator size={18} className="text-[#EAB308]" />
-                            Récapitulatif
-                        </h2>
-
-                        <div className="space-y-6">
-                            <div className="flex justify-between text-sm text-zinc-400">
-                                <span>Total HT</span>
-                                <span className="text-white font-mono">{formatCurrency(totals.subtotal)}</span>
-                            </div>
-
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-zinc-400">Remise (%)</span>
-                                <input
-                                    type="number"
-                                    value={discountRate}
-                                    onChange={(e) => setDiscountRate(parseFloat(e.target.value) || 0)}
-                                    className="w-16 h-8 bg-zinc-900 border border-zinc-700 rounded text-center text-white text-sm font-mono focus:border-[#EAB308] outline-none"
-                                />
-                            </div>
-
-                            <div className="border-t border-zinc-800 pt-6">
-                                <div className="flex justify-between text-sm text-zinc-400 mb-2">
-                                    <span>TVA (20%)</span>
-                                    <span className="text-white font-mono">{formatCurrency(totals.tva)}</span>
-                                </div>
-                                <div className="flex justify-between items-end mt-8">
-                                    <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Net à Payer</span>
-                                    <span className="text-3xl font-black text-[#EAB308] font-mono tracking-tight">
-                                        {formatCurrency(totals.totalTTC)}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={handleSubmit}
-                                disabled={loading}
-                                className="w-full mt-10 bg-[#EAB308] text-black font-black h-14 rounded-xl hover:bg-[#FACC15] transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider disabled:opacity-50"
-                            >
-                                {loading ? "Enregistrement..." : <>
-                                    <Save size={20} />
-                                    Enregistrer le devis
-                                </>}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
             </div>
-        </div>
         </div >
     )
 }
