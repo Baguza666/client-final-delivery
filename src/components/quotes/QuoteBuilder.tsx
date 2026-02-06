@@ -11,7 +11,8 @@ import {
     Save,
     ChevronDown,
     ArrowLeft,
-    Receipt
+    Receipt,
+    X
 } from 'lucide-react'
 import Link from 'next/link'
 import { createQuote } from './QuoteActions'
@@ -118,18 +119,18 @@ export default function QuoteBuilder() {
     const formatCurrency = (value: number) => value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DH'
 
     return (
-        <div className="min-h-screen bg-black pl-72 text-white font-sans">
+        <div className="min-h-screen bg-black pl-0 md:pl-72 text-white font-sans">
 
-            <div className="w-full max-w-[1920px] mx-auto p-8 space-y-8">
+            <div className="w-full max-w-[1920px] mx-auto p-4 md:p-8 space-y-6">
 
                 {/* --- HEADER --- */}
-                <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
                     <div className="flex items-center gap-4">
                         <Link href="/quotes" className="p-2 rounded-lg bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-zinc-800">
                             <ArrowLeft size={20} />
                         </Link>
                         <div>
-                            <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+                            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight flex items-center gap-3">
                                 <Receipt size={24} className="text-[#EAB308]" />
                                 Nouveau Devis
                             </h1>
@@ -137,9 +138,9 @@ export default function QuoteBuilder() {
                     </div>
                 </div>
 
-                {/* --- CONFIGURATION BAR --- */}
-                <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-6 shadow-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                {/* --- CONFIGURATION BAR (Stack on mobile) --- */}
+                <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-5 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                         <div className="md:col-span-8 space-y-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Client</label>
                             <div className="relative group">
@@ -172,89 +173,132 @@ export default function QuoteBuilder() {
                     </div>
                 </div>
 
-                {/* --- WORKSPACE GRID --- */}
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                {/* --- WORKSPACE GRID (Stack on mobile) --- */}
+                <div className="flex flex-col xl:flex-row gap-6 items-start">
 
-                    {/* LEFT: ITEMS TABLE (8 Columns) */}
-                    <div className="xl:col-span-8 bg-[#0A0A0A] border border-zinc-800 rounded-xl shadow-sm flex flex-col overflow-hidden min-h-[500px]">
+                    {/* LEFT: ITEMS LIST (Flexible width) */}
+                    <div className="w-full xl:flex-1 bg-[#0A0A0A] border border-zinc-800 rounded-xl shadow-sm flex flex-col overflow-hidden min-h-[500px]">
 
-                        {/* ✅ GRID FIX: Modified column spans to give "Qty" and "Unit" more room 
-                            Cols: 12 Total
-                            Desc (4) | Unit (1) | Qty (2) | Price (2) | Total (2) | Del (1)
-                        */}
-                        <div className="grid grid-cols-12 gap-4 px-6 py-4 bg-zinc-900/50 border-b border-zinc-800 text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
-                            <div className="col-span-4">Description</div>
+                        {/* Desktop Header (Hidden on Mobile) */}
+                        <div className="hidden lg:grid grid-cols-12 gap-4 px-6 py-4 bg-zinc-900/50 border-b border-zinc-800 text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
+                            <div className="col-span-5">Description</div>
                             <div className="col-span-1 text-center">Unité</div>
                             <div className="col-span-2 text-center">Qté</div>
                             <div className="col-span-2 text-right">Prix Uni.</div>
                             <div className="col-span-2 text-right">Total HT</div>
-                            <div className="col-span-1"></div>
                         </div>
 
-                        <div className="p-4 space-y-2">
+                        <div className="p-4 space-y-4 lg:space-y-2">
                             {items.map((item, i) => (
-                                <div key={i} className="group grid grid-cols-12 gap-4 items-start bg-zinc-900/10 p-2 rounded-lg hover:bg-zinc-900/50 transition-all border border-transparent hover:border-zinc-800">
+                                <div key={i} className="group relative bg-zinc-900/20 p-4 lg:p-2 rounded-xl border border-zinc-800/50 hover:border-zinc-700 transition-all">
 
-                                    {/* Description - col-span-4 */}
-                                    <div className="col-span-4">
+                                    {/* --- MOBILE LAYOUT (<1024px) --- */}
+                                    <div className="lg:hidden flex flex-col gap-4">
+                                        <div className="flex justify-between items-start">
+                                            <span className="text-xs font-bold text-zinc-500">LIGNE #{i + 1}</span>
+                                            <button onClick={() => removeItem(i)} className="text-red-500 p-2 bg-red-500/10 rounded-lg">
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+
                                         <textarea
-                                            rows={1}
+                                            rows={2}
                                             value={item.description}
                                             onChange={(e) => updateItem(i, 'description', e.target.value)}
-                                            className="w-full min-h-[48px] bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white placeholder-zinc-500 outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm resize-none font-medium leading-normal"
+                                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white text-sm"
                                             placeholder="Désignation..."
                                         />
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-[10px] text-zinc-500 uppercase font-bold">Unité</label>
+                                                <input
+                                                    value={item.unit}
+                                                    onChange={(e) => updateItem(i, 'unit', e.target.value)}
+                                                    className="w-full h-10 bg-zinc-800 border border-zinc-700 rounded-lg px-3 text-white text-sm uppercase"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-zinc-500 uppercase font-bold">Qté</label>
+                                                <input
+                                                    type="number"
+                                                    value={item.quantity}
+                                                    onChange={(e) => updateItem(i, 'quantity', e.target.value)}
+                                                    className="w-full h-10 bg-zinc-800 border border-zinc-700 rounded-lg px-3 text-white text-sm font-mono"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-[10px] text-zinc-500 uppercase font-bold">Prix Unitaire</label>
+                                                <input
+                                                    type="number"
+                                                    value={item.unit_price}
+                                                    onChange={(e) => updateItem(i, 'unit_price', e.target.value)}
+                                                    className="w-full h-10 bg-zinc-800 border border-zinc-700 rounded-lg px-3 text-white text-sm font-mono"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-zinc-500 uppercase font-bold text-right block">Total</label>
+                                                <div className="h-10 flex items-center justify-end font-mono text-white font-bold bg-zinc-900/50 rounded-lg px-3 border border-zinc-800">
+                                                    {formatCurrency(item.total).replace(' DH', '')}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    {/* Unit - col-span-1 */}
-                                    <div className="col-span-1">
-                                        <input
-                                            value={item.unit}
-                                            onChange={(e) => updateItem(i, 'unit', e.target.value)}
-                                            className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white text-sm font-bold uppercase focus:border-[#EAB308] outline-none transition-all"
-                                        />
+                                    {/* --- DESKTOP LAYOUT (>=1024px) --- */}
+                                    <div className="hidden lg:grid grid-cols-12 gap-4 items-start">
+                                        <div className="col-span-5">
+                                            <textarea
+                                                rows={1}
+                                                value={item.description}
+                                                onChange={(e) => updateItem(i, 'description', e.target.value)}
+                                                className="w-full min-h-[48px] bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white placeholder-zinc-500 outline-none focus:border-[#EAB308] focus:ring-1 focus:ring-[#EAB308] transition-all text-sm resize-none font-medium leading-normal"
+                                                placeholder="Désignation..."
+                                            />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <input
+                                                value={item.unit}
+                                                onChange={(e) => updateItem(i, 'unit', e.target.value)}
+                                                className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white text-sm font-bold uppercase focus:border-[#EAB308] outline-none"
+                                            />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={item.quantity}
+                                                onChange={(e) => updateItem(i, 'quantity', e.target.value)}
+                                                className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none"
+                                            />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={item.unit_price}
+                                                onChange={(e) => updateItem(i, 'unit_price', e.target.value)}
+                                                className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-right pr-3 text-white font-mono text-sm focus:border-[#EAB308] outline-none"
+                                            />
+                                        </div>
+                                        <div className="col-span-2 flex items-center justify-between pl-4 h-12 bg-zinc-900/30 rounded-lg border border-zinc-800/50">
+                                            <span className="font-mono text-white font-bold text-sm whitespace-nowrap">
+                                                {formatCurrency(item.total).replace(' DH', '')}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeItem(i)}
+                                                className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 p-2 hover:bg-zinc-800 rounded mr-1 transition-all"
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    {/* Quantity - col-span-2 (Wider now) */}
-                                    <div className="col-span-2">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={item.quantity}
-                                            onChange={(e) => updateItem(i, 'quantity', e.target.value)}
-                                            className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none transition-all"
-                                        />
-                                    </div>
-
-                                    {/* Price - col-span-2 */}
-                                    <div className="col-span-2">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={item.unit_price}
-                                            onChange={(e) => updateItem(i, 'unit_price', e.target.value)}
-                                            className="w-full h-12 bg-zinc-800 border border-zinc-700 rounded-lg text-right pr-3 text-white font-mono text-sm focus:border-[#EAB308] outline-none transition-all"
-                                        />
-                                    </div>
-
-                                    {/* Row Total - col-span-2 */}
-                                    <div className="col-span-2 flex items-center justify-end h-12">
-                                        <span className="font-mono text-white font-bold text-sm whitespace-nowrap">
-                                            {formatCurrency(item.total).replace(' DH', '')}
-                                        </span>
-                                    </div>
-
-                                    {/* Delete - col-span-1 */}
-                                    <div className="col-span-1 flex items-center justify-center h-12">
-                                        <button
-                                            type="button"
-                                            onClick={() => removeItem(i)}
-                                            className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 transition-all p-2 hover:bg-zinc-800 rounded"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -263,7 +307,7 @@ export default function QuoteBuilder() {
                             <button
                                 type="button"
                                 onClick={addItem}
-                                className="text-sm font-bold uppercase tracking-wide text-zinc-500 hover:text-[#EAB308] flex items-center gap-2 hover:bg-[#EAB308]/10 px-4 py-3 rounded-lg transition-all w-full md:w-auto border border-dashed border-zinc-800 hover:border-[#EAB308]/30"
+                                className="text-sm font-bold uppercase tracking-wide text-zinc-500 hover:text-[#EAB308] flex items-center gap-2 hover:bg-[#EAB308]/10 px-4 py-3 rounded-lg transition-all w-full border border-dashed border-zinc-800 hover:border-[#EAB308]/30 justify-center"
                             >
                                 <Plus size={16} />
                                 Ajouter une ligne
@@ -271,9 +315,9 @@ export default function QuoteBuilder() {
                         </div>
                     </div>
 
-                    {/* RIGHT: TOTALS PANEL */}
-                    <div className="xl:col-span-4 space-y-6 sticky top-6">
-                        <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-8 shadow-sm">
+                    {/* RIGHT: TOTALS PANEL (Full width on mobile, side on desktop) */}
+                    <div className="w-full xl:w-[400px] xl:sticky xl:top-6 space-y-6">
+                        <div className="bg-[#0A0A0A] border border-zinc-800 rounded-xl p-6 md:p-8 shadow-sm">
                             <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-6 flex items-center gap-2">
                                 <Calculator size={18} className="text-[#EAB308]" />
                                 Récapitulatif
@@ -320,7 +364,8 @@ export default function QuoteBuilder() {
                                 <div className="pt-6 mt-4 border-t border-zinc-800">
                                     <div className="flex flex-col items-end gap-1">
                                         <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Net à payer</span>
-                                        <span className="text-3xl font-black text-[#EAB308] font-mono tracking-tight whitespace-nowrap">
+                                        {/* ✅ FIX: Wrap properly on small screens */}
+                                        <span className="text-2xl md:text-3xl font-black text-[#EAB308] font-mono tracking-tight text-right break-words w-full">
                                             {formatCurrency(totals.totalTTC)}
                                         </span>
                                     </div>
