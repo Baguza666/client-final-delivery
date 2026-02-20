@@ -7,7 +7,8 @@ import { createBrowserClient } from '@supabase/ssr'
 import Sidebar from '@/components/Sidebar'
 import { deleteDocument } from '@/app/actions/documentActions'
 import ConfirmationModal from '@/components/ui/ConfirmationModal'
-import { Plus, Eye, Trash2, FileText, Search } from 'lucide-react'
+// ✅ Added Edit to imports
+import { Plus, Eye, Trash2, FileText, Search, Edit } from 'lucide-react'
 
 const getStatusColor = (status: string) => {
     switch (status) {
@@ -67,6 +68,12 @@ export default function QuotesPage() {
     const handlePreview = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
         router.push(`/quotes/${id}`);
+    }
+
+    // ✅ NEW: Handle Edit routing
+    const handleEdit = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        router.push(`/quotes/${id}/edit`);
     }
 
     const formatCurrency = (amount: number) => {
@@ -164,6 +171,15 @@ export default function QuotesPage() {
                                                     title="Voir"
                                                 >
                                                     <Eye size={18} />
+                                                </button>
+
+                                                {/* ✅ Added Edit Button */}
+                                                <button
+                                                    onClick={(e) => handleEdit(e, quote.id)}
+                                                    className="p-2 text-zinc-500 hover:text-[#EAB308] hover:bg-[#EAB308]/10 rounded-lg transition-colors"
+                                                    title="Modifier"
+                                                >
+                                                    <Edit size={18} />
                                                 </button>
 
                                                 <button
