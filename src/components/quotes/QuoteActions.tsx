@@ -25,36 +25,28 @@ export async function createQuote(formData: FormData) {
 
   // 1. ATTEMPT AUTH
   const { data: { user } } = await supabase.auth.getUser()
-
-  // ✅ FIX: Create a Safe User ID
-  // If user exists, use their ID. If not, use 'demo-user-id'.
-  // This satisfies TypeScript because it's always a string.
   const userId = user ? user.id : 'demo-user-id'
 
   if (!user) {
     console.log("No authenticated user found. Using Demo ID:", userId)
   }
 
-  // 2. Fetch Workspace (using the safe userId)
+  // 2. Fetch Workspace
   let workspaceId = null
   const { data: workspace } = await supabase
     .from('workspaces')
     .select('id')
-    .eq('owner_id', userId) // ✅ No more red squiggly line here
+    .eq('owner_id', userId)
     .single()
 
   if (workspace) {
     workspaceId = workspace.id
   } else {
-    // Fallback: Just grab the first workspace in the DB (For Demo Mode)
     const { data: anyWs } = await supabase.from('workspaces').select('id').limit(1).single()
     workspaceId = anyWs?.id
   }
 
-  if (!workspaceId) {
-    // If the DB is empty, we can't save, but we return success to UI to stop crashes
-    return { success: true, id: 'demo-mode-no-db' }
-  }
+  if (!workspaceId) return { success: true, id: 'demo-mode-no-db' }
 
   try {
     const items = JSON.parse(formData.get('items') as string)
@@ -82,7 +74,7 @@ export async function createQuote(formData: FormData) {
 
     if (quoteError) throw quoteError
 
-    // 5. Insert Items (WITH UNIT FIELD)
+    // 5. Insert Items
     const { error: itemsError } = await supabase.from('quote_items').insert(
       items.map((item: any) => ({
         quote_id: quote.id,
@@ -98,6 +90,74 @@ export async function createQuote(formData: FormData) {
 
     revalidatePath('/quotes')
     return { success: true, id: quote.id as string }
+
+  } catch (err: any) {
+    console.error("DB Error:", err)
+    return { success: false, error: `Erreur DB: ${err.message}` }
+  }
+}
+
+// ✅ NEW: Update an existing quote
+export async function updateQuote(quoteId: string, formData: FormData) {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+          } catch { }
+        },
+      },
+    }
+  )
+
+  try {
+    const items = JSON.parse(formData.get('items') as string)
+
+    // 1. Update the main quote record
+    const { error: quoteError } = await supabase
+      .from('quotes')
+      .update({
+        client_id: formData.get('client_id'),
+        date: formData.get('date'),
+        subtotal: Number(formData.get('subtotal')),
+        discount_rate: Number(formData.get('discount_rate')),
+        total: Number(formData.get('total_ttc')),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', quoteId)
+
+    if (quoteError) throw quoteError
+
+    // 2. Delete existing items
+    const { error: deleteError } = await supabase
+      .from('quote_items')
+      .delete()
+      .eq('quote_id', quoteId)
+
+    if (deleteError) throw deleteError
+
+    // 3. Insert new items
+    const { error: insertError } = await supabase.from('quote_items').insert(
+      items.map((item: any) => ({
+        quote_id: quoteId,
+        description: item.description,
+        unit: item.unit || 'u',
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total: item.total
+      }))
+    )
+
+    if (insertError) throw insertError
+
+    revalidatePath('/quotes')
+    revalidatePath(`/quotes/${quoteId}`)
+    return { success: true, id: quoteId }
 
   } catch (err: any) {
     console.error("DB Error:", err)

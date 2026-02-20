@@ -7,14 +7,13 @@ import {
     Plus,
     Trash2,
     Calendar,
-    Calculator,
     Save,
     ChevronDown,
     ArrowLeft,
     Receipt
 } from 'lucide-react'
 import Link from 'next/link'
-import { createQuote } from './QuoteActions'
+import { createQuote, updateQuote } from './QuoteActions'
 
 // Configuration des colonnes avec flex-shrink-0 pour empêcher le collapse
 const COLUMN_WIDTHS = {
@@ -47,9 +46,11 @@ const emptyItem = (): QuoteItem => ({
     total: 0,
 })
 
-export default function QuoteBuilder() {
+// ✅ Added quoteId prop for Edit Mode
+export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
+    const [fetching, setFetching] = useState(!!quoteId) // Loading state for fetching existing quote
     const [clients, setClients] = useState<Client[]>([])
     const [clientId, setClientId] = useState('')
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -65,12 +66,39 @@ export default function QuoteBuilder() {
     )
 
     useEffect(() => {
-        const fetchClients = async () => {
-            const { data } = await supabase.from('clients').select('id, name').order('name')
-            if (data) setClients(data)
+        const fetchInitialData = async () => {
+            // Fetch Clients
+            const { data: clientsData } = await supabase.from('clients').select('id, name').order('name')
+            if (clientsData) setClients(clientsData)
+
+            // ✅ Fetch Existing Quote Data if editing
+            if (quoteId) {
+                const { data: quoteData } = await supabase
+                    .from('quotes')
+                    .select('*, quote_items(*)')
+                    .eq('id', quoteId)
+                    .single()
+
+                if (quoteData) {
+                    setClientId(quoteData.client_id || '')
+                    setDate(quoteData.date || new Date().toISOString().split('T')[0])
+                    setDiscountRate(quoteData.discount_rate || 0)
+
+                    if (quoteData.quote_items && quoteData.quote_items.length > 0) {
+                        setItems(quoteData.quote_items.map((i: any) => ({
+                            description: i.description,
+                            unit: i.unit || 'U',
+                            quantity: i.quantity,
+                            unit_price: i.unit_price,
+                            total: i.total
+                        })))
+                    }
+                }
+                setFetching(false)
+            }
         }
-        fetchClients()
-    }, [supabase])
+        fetchInitialData()
+    }, [supabase, quoteId])
 
     const totals = useMemo(() => {
         const subtotal = items.reduce((sum, item) => sum + item.total, 0)
@@ -116,7 +144,11 @@ export default function QuoteBuilder() {
         formData.append('total_ttc', totals.totalTTC.toFixed(2))
         formData.append('items', JSON.stringify(items))
 
-        const result = await createQuote(formData)
+        // ✅ Call Update if quoteId exists, otherwise Create
+        const result = quoteId
+            ? await updateQuote(quoteId, formData)
+            : await createQuote(formData)
+
         if (result.success && result.id) router.push(`/quotes/${result.id}`)
         else alert(`Erreur: ${result.error}`)
 
@@ -126,6 +158,11 @@ export default function QuoteBuilder() {
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2 }).format(value) + ' DH'
 
+    // ✅ Render loading state while fetching existing quote
+    if (fetching) {
+        return <div className="min-h-screen bg-black pl-72 text-white flex items-center justify-center">Chargement du devis...</div>
+    }
+
     return (
         <div className="min-h-screen bg-black pl-72 text-white font-sans">
             <div className="w-full p-8 space-y-8">
@@ -133,12 +170,13 @@ export default function QuoteBuilder() {
                 {/* HEADER */}
                 <div className="flex items-center justify-between pb-6 border-b border-zinc-800">
                     <div className="flex items-center gap-4">
-                        <Link href="/quotes" className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-all">
+                        <Link href={quoteId ? `/quotes/${quoteId}` : "/quotes"} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-all">
                             <ArrowLeft size={20} />
                         </Link>
                         <h1 className="text-2xl font-bold flex items-center gap-3">
                             <Receipt size={24} className="text-[#EAB308]" />
-                            Nouveau Devis
+                            {/* ✅ Dynamic Title */}
+                            {quoteId ? 'Modifier le Devis' : 'Nouveau Devis'}
                         </h1>
                     </div>
                 </div>
