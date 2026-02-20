@@ -69,7 +69,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
     const totalInWords = numberToFrenchWords(calculatedTotalTTC);
 
     const docDateStr = new Date(invoice.date).toISOString();
-    const finalDueDateStr = invoice.due_date ? new Date(invoice.due_date).toISOString() : new Date().toISOString();
 
     return (
         <main className="ml-72 w-full p-8 print:ml-0 print:p-0 flex flex-col items-center relative">
@@ -145,15 +144,10 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                             )}
 
                             <div className="mt-4 flex gap-8 text-left">
+                                {/* ✅ REMOVED 'Échéance' HERE */}
                                 <div>
                                     <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Date d'émission</p>
                                     <p className="font-semibold text-zinc-900">{formatDate(docDateStr)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Échéance</p>
-                                    <p className="font-semibold text-[#EAB308]">
-                                        {formatDate(finalDueDateStr)}
-                                    </p>
                                 </div>
                             </div>
                         </div>

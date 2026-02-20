@@ -69,7 +69,6 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
     // --- MATH ---
     const calculatedTotalHT = document.quote_items?.reduce((sum: number, item: any) => sum + (item.total || 0), 0) || 0;
 
-    // ✅ Discount Logic
     const discountPercent = document.discount || 0;
     const discountAmount = calculatedTotalHT * (discountPercent / 100);
     const netHT = calculatedTotalHT - discountAmount;
@@ -81,9 +80,6 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
     // --- DATES ---
     const docDate = document.date ? new Date(document.date) : new Date();
     const docDateStr = docDate.toISOString();
-    const validUntil = new Date(docDate);
-    validUntil.setDate(docDate.getDate() + (document.validity_days || 30));
-    const validUntilStr = validUntil.toISOString();
 
     const handleConvertClick = () => setIsModalOpen(true);
     const confirmConversion = () => {
@@ -93,8 +89,6 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
     };
 
     return (
-        // ✅ LAYOUT FIXED: 'ml-72' pushes content right. 'flex flex-col items-center' centers the A4 page in the REMAINING space.
-        // Removed 'w-full' to prevent overflow.
         <main className="ml-72 p-8 print:ml-0 print:p-0 flex flex-col items-center relative min-h-screen">
 
             <ConfirmationModal
@@ -187,8 +181,8 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                 <div className="mt-1 text-xs text-zinc-500 font-mono">{client?.ice && <span>ICE: {client.ice}</span>}</div>
                             )}
                             <div className="mt-4 flex gap-8 text-left">
+                                {/* ✅ REMOVED 'Validité' HERE */}
                                 <div><p className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Date</p><p className="font-semibold text-zinc-900">{formatDate(docDateStr)}</p></div>
-                                <div><p className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Validité</p><p className="font-semibold text-[#EAB308]">{formatDate(validUntilStr)}</p></div>
                             </div>
                         </div>
                     </div>
@@ -199,7 +193,6 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                             <thead>
                                 <tr className="border-b-2 border-zinc-800">
                                     <th className="text-left text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[40%] tracking-widest">Description</th>
-                                    {/* Unité Column */}
                                     <th className="text-center text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[10%] tracking-widest">Unité</th>
                                     <th className="text-center text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[10%] tracking-widest">Qté</th>
                                     <th className="text-right text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[20%] tracking-widest">Prix Unit.</th>
@@ -210,7 +203,6 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                 {document.quote_items?.map((item: any, idx: number) => (
                                     <tr key={item.id} className={`border-b ${idx === document.quote_items.length - 1 ? 'border-zinc-800' : 'border-zinc-200'}`}>
                                         <td className="py-3 font-semibold text-zinc-900">{item.description}</td>
-                                        {/* Unité Data */}
                                         <td className="py-3 text-center text-zinc-500 font-mono text-[11px] uppercase">{item.unit || '-'}</td>
                                         <td className="py-3 text-center text-zinc-600 font-mono">{item.quantity}</td>
                                         <td className="py-3 text-right text-zinc-600 font-mono">{formatNumber(item.unit_price)}</td>
@@ -221,12 +213,11 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                         </table>
                     </div>
 
-                    {/* 4. Totals (Compact) - DISCOUNTED & NO CONDITIONS */}
+                    {/* 4. Totals (Compact) */}
                     <div className="break-inside-avoid font-['Inter'] mt-4 mb-6 grid grid-cols-2 gap-12 items-end">
                         <div className="flex flex-col gap-4">
                             <div className="text-xs text-zinc-500 leading-relaxed text-left">
                                 <p className="mb-2">Arrêté le présent devis à la somme de :<br /><span className="font-bold text-zinc-900 uppercase leading-normal">{totalInWords} Dirhams TTC</span></p>
-                                {/* 🚫 Conditions Removed Here */}
                             </div>
                         </div>
 
@@ -237,7 +228,6 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                     <span className="font-mono text-zinc-900 whitespace-nowrap">{formatNumber(calculatedTotalHT)} DH</span>
                                 </div>
 
-                                {/* ✅ DISCOUNT ROW */}
                                 {discountPercent > 0 && (
                                     <div className="flex justify-between text-xs text-zinc-600">
                                         <span className="text-red-600">Remise ({discountPercent}%)</span>

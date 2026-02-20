@@ -27,7 +27,6 @@ export default function PurchaseOrderViewer({ document, client, ws }: DocumentVi
     const [showStamp, setShowStamp] = useState(true);
     const [showSignature, setShowSignature] = useState(true);
     const totalInWords = numberToFrenchWords(document.total_ttc || 0);
-    const deliveryDate = new Date(document.date); deliveryDate.setDate(deliveryDate.getDate() + 14);
 
     return (
         // ✅ LAYOUT FIX: ml-72 + relative (no w-full)
@@ -75,8 +74,8 @@ export default function PurchaseOrderViewer({ document, client, ws }: DocumentVi
                             <p className="text-zinc-600">{client?.address}</p>
                             <p className="text-zinc-600">{client?.city} {client?.country}</p>
                             <div className="mt-4 flex gap-8 text-left">
+                                {/* ✅ REMOVED 'Livraison Souhaitée' HERE */}
                                 <div><p className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Date de commande</p><p className="font-semibold text-zinc-900">{formatDate(document.date)}</p></div>
-                                <div><p className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Livraison Souhaitée</p><p className="font-semibold text-[#EAB308]">{formatDate(deliveryDate.toISOString())}</p></div>
                             </div>
                         </div>
                     </div>
