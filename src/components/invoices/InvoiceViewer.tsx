@@ -191,7 +191,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                     <p className="font-bold text-zinc-900 mb-1">Conditions de règlement:</p>
                                     <ul className="list-disc pl-4 space-y-1">
                                         <li>Paiement par virement ou chèque.</li>
-                                        <li>En cas de retard, pénalité de 3x le taux légal.</li>
                                     </ul>
                                 </div>
                             </div>
