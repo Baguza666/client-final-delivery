@@ -37,8 +37,9 @@ export async function createInvoice(formData: FormData) {
     const status = formData.get('status') || 'draft'
     let number = formData.get('number') as string
 
-    // ✅ Extract Discount
+    // ✅ Extract Discount & Notes
     const discount = Number(formData.get('discount')) || 0
+    const notes = formData.get('notes') as string || null
 
     if (!number || number.trim() === '') {
         number = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
@@ -66,8 +67,9 @@ export async function createInvoice(formData: FormData) {
             issue_date: date,
             due_date: dueDate,
             status: status,
-            discount: discount, // ✅ Save Discount
-            total_ht: totalHT_Gross, // We store Gross here, logic handles Net
+            discount: discount,
+            notes: notes, // ✅ Save Notes
+            total_ht: totalHT_Gross,
             total_tva: totalTVA,
             total_ttc: totalTTC,
             total: totalTTC,
@@ -109,7 +111,10 @@ export async function updateInvoice(invoiceId: string, formData: FormData) {
     const dueDate = formData.get('due_date')
     const status = formData.get('status')
     const number = formData.get('number') as string
-    const discount = Number(formData.get('discount')) || 0 // ✅ Extract Discount
+
+    // ✅ Extract Discount & Notes
+    const discount = Number(formData.get('discount')) || 0
+    const notes = formData.get('notes') as string || null
 
     const itemsJson = formData.get('items') as string
     const items = itemsJson ? JSON.parse(itemsJson) : []
@@ -130,8 +135,9 @@ export async function updateInvoice(invoiceId: string, formData: FormData) {
             date: date,
             issue_date: date,
             due_date: dueDate,
-            status: status,
-            discount: discount, // ✅ Update Discount
+            ...(status ? { status: status } : {}), // only update status if provided
+            discount: discount,
+            notes: notes, // ✅ Update Notes
             total_ht: totalHT_Gross,
             total_tva: totalTVA,
             total_ttc: totalTTC,
@@ -168,10 +174,7 @@ export async function deleteInvoice(invoiceId: string) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: "Non connecté" }
 
-    // Clean up items first
     await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId)
-
-    // Delete invoice
     const { error } = await supabase.from('invoices').delete().eq('id', invoiceId)
 
     if (error) return { error: error.message }
