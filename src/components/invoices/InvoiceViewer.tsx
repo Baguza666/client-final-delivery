@@ -187,12 +187,14 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                     Arrêté la présente facture à la somme de :<br />
                                     <span className="font-bold text-zinc-900 uppercase leading-normal">{totalInWords} Dirhams TTC</span>
                                 </p>
-                                <div className="mt-2 pt-2 border-t border-zinc-200">
-                                    <p className="font-bold text-zinc-900 mb-1">Conditions de règlement:</p>
-                                    <ul className="list-disc pl-4 space-y-1">
-                                        <li>Paiement par virement ou chèque.</li>
-                                    </ul>
-                                </div>
+
+                                {/* ✅ Custom Notes REPLACES Hardcoded Bullet Points */}
+                                {invoice.notes && (
+                                    <div className="mt-4 pt-3 border-t border-zinc-200">
+                                        <p className="font-bold text-zinc-900 mb-1">Conditions de règlement :</p>
+                                        <p className="text-zinc-700 whitespace-pre-wrap leading-tight">{invoice.notes}</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

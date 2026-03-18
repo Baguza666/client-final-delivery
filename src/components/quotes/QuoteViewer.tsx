@@ -218,6 +218,14 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                         <div className="flex flex-col gap-4">
                             <div className="text-xs text-zinc-500 leading-relaxed text-left">
                                 <p className="mb-2">Arrêté le présent devis à la somme de :<br /><span className="font-bold text-zinc-900 uppercase leading-normal">{totalInWords} Dirhams TTC</span></p>
+
+                                {/* ✅ Custom Notes Rendered Here */}
+                                {document.notes && (
+                                    <div className="mt-4 pt-3 border-t border-zinc-200">
+                                        <p className="font-bold text-zinc-900 mb-1">Conditions & Notes :</p>
+                                        <p className="text-zinc-700 whitespace-pre-wrap leading-tight">{document.notes}</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

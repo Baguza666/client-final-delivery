@@ -32,10 +32,6 @@ export async function convertQuoteToInvoice(quoteId: string) {
     const blNum = await generateNextNumber(supabase, 'delivery_notes', 'number', 'BL')
     const bcNum = await generateNextNumber(supabase, 'purchase_orders', 'number', 'BC')
 
-    // 🧮 Recalculate Invoice Math from Quote
-    // Note: quote.total_amount usually stores the TTC in your schema
-    // We need to re-derive HT Gross if not stored, but usually quotes store items.
-
     const items = quote.quote_items
     const totalHT_Gross = items.reduce((sum: number, item: any) => sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0)
     const discount = quote.discount || 0
@@ -55,7 +51,8 @@ export async function convertQuoteToInvoice(quoteId: string) {
             client_id: quote.client_id,
             workspace_id: quote.workspace_id,
             status: 'draft',
-            discount: discount, // ✅ Copy Discount
+            discount: discount,
+            notes: quote.notes || null, // ✅ Inherit the custom notes from the quote
             total_ht: totalHT_Gross,
             total_tva: totalTVA,
             total_ttc: totalTTC,
@@ -78,7 +75,6 @@ export async function convertQuoteToInvoice(quoteId: string) {
     }))
     await supabase.from('invoice_items').insert(invoiceItems)
 
-    // ... (BL and PO creation remains the same, usually without discount logic) ...
     // BL
     const { data: newBL } = await supabase.from('delivery_notes').insert({
         number: blNum,
@@ -104,7 +100,7 @@ export async function convertQuoteToInvoice(quoteId: string) {
         client_id: quote.client_id,
         workspace_id: quote.workspace_id,
         status: 'pending',
-        total_ht: totalHT_Gross, // POs usually show Gross agreed price or Net, let's keep Gross for now
+        total_ht: totalHT_Gross,
         total_ttc: totalTTC,
     }).select().single()
 
