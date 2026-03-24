@@ -34,10 +34,13 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
     const [loading, setLoading] = useState(false)
     const [fetching, setFetching] = useState(!!quoteId)
     const [clients, setClients] = useState<Client[]>([])
+
+    // ✅ Added Quote Number state
+    const [quoteNumber, setQuoteNumber] = useState('')
     const [clientId, setClientId] = useState('')
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [discountRate, setDiscountRate] = useState(0)
-    const [notes, setNotes] = useState('') // ✅ Added notes state
+    const [notes, setNotes] = useState('')
     const [items, setItems] = useState<QuoteItem[]>([emptyItem()])
 
     const supabase = useMemo(() => createBrowserClient(
@@ -53,10 +56,11 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
             if (quoteId) {
                 const { data: quoteData } = await supabase.from('quotes').select('*, quote_items(*)').eq('id', quoteId).single()
                 if (quoteData) {
+                    setQuoteNumber(quoteData.number || '') // ✅ Load existing number
                     setClientId(quoteData.client_id || '')
                     setDate(quoteData.date || new Date().toISOString().split('T')[0])
                     setDiscountRate(quoteData.discount_rate || 0)
-                    setNotes(quoteData.notes || '') // ✅ Load existing notes
+                    setNotes(quoteData.notes || '')
 
                     if (quoteData.quote_items && quoteData.quote_items.length > 0) {
                         setItems(quoteData.quote_items.map((i: any) => ({
@@ -107,13 +111,14 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
         setLoading(true)
 
         const formData = new FormData()
+        formData.append('number', quoteNumber) // ✅ Pass custom number
         formData.append('client_id', clientId)
         formData.append('date', date)
         formData.append('discount_rate', discountRate.toString())
         formData.append('subtotal', totals.subtotal.toFixed(2))
         formData.append('net_ht', totals.netHT.toFixed(2))
         formData.append('total_ttc', totals.totalTTC.toFixed(2))
-        formData.append('notes', notes) // ✅ Append notes to form data
+        formData.append('notes', notes)
         formData.append('items', JSON.stringify(items))
 
         const result = quoteId ? await updateQuote(quoteId, formData) : await createQuote(formData)
@@ -143,7 +148,19 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                 {/* CONFIGURATION BAR */}
                 <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6">
                     <div className="flex flex-wrap gap-8">
-                        <div className="flex-grow min-w-[300px] space-y-2">
+                        {/* ✅ Added Quote Number Input */}
+                        <div className="w-48 space-y-2">
+                            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Numéro</label>
+                            <input
+                                type="text"
+                                value={quoteNumber}
+                                onChange={(e) => setQuoteNumber(e.target.value)}
+                                placeholder="Auto-généré"
+                                className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg px-4 text-white outline-none focus:border-[#EAB308] transition-all font-medium"
+                            />
+                        </div>
+
+                        <div className="flex-grow min-w-[250px] space-y-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Client</label>
                             <div className="relative">
                                 <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg px-4 text-white outline-none focus:border-[#EAB308] appearance-none transition-all font-medium">
@@ -153,7 +170,8 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={16} />
                             </div>
                         </div>
-                        <div className="w-64 space-y-2">
+
+                        <div className="w-48 space-y-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Date d'émission</label>
                             <div className="relative">
                                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg px-4 pl-12 text-white outline-none focus:border-[#EAB308] transition-all font-medium" />
@@ -191,7 +209,7 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                 <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6">
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-10">
 
-                        {/* ✅ Left Side: Discount & Custom Notes */}
+                        {/* Left Side: Discount & Custom Notes */}
                         <div className="w-full md:w-1/2 flex flex-col gap-6">
                             <div className="flex items-center gap-4">
                                 <span className="text-sm text-zinc-400">Remise (%)</span>

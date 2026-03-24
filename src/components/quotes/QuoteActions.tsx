@@ -35,16 +35,20 @@ export async function createQuote(formData: FormData) {
 
   try {
     const items = JSON.parse(formData.get('items') as string)
-    const { count } = await supabase.from('quotes').select('*', { count: 'exact', head: true })
-    const number = `DEV-${new Date().getFullYear()}-${(count || 0) + 1}`
 
-    // ✅ Added 'notes' field here
+    // ✅ Check if a custom number was provided, else auto-generate
+    let number = formData.get('number') as string
+    if (!number || number.trim() === '') {
+      const { count } = await supabase.from('quotes').select('*', { count: 'exact', head: true })
+      number = `DEV-${new Date().getFullYear()}-${(count || 0) + 1}`
+    }
+
     const { data: quote, error: quoteError } = await supabase
       .from('quotes')
       .insert({
         workspace_id: workspaceId,
         client_id: formData.get('client_id'),
-        number,
+        number, // ✅ Use custom or generated number
         date: formData.get('date'),
         status: 'draft',
         subtotal: Number(formData.get('subtotal')),
@@ -97,12 +101,13 @@ export async function updateQuote(quoteId: string, formData: FormData) {
 
   try {
     const items = JSON.parse(formData.get('items') as string)
+    const number = formData.get('number') as string // ✅ Extract custom number
 
-    // ✅ Added 'notes' field here
     const { error: quoteError } = await supabase
       .from('quotes')
       .update({
         client_id: formData.get('client_id'),
+        ...(number ? { number: number } : {}), // ✅ Update number if provided
         date: formData.get('date'),
         subtotal: Number(formData.get('subtotal')),
         discount_rate: Number(formData.get('discount_rate')),
