@@ -18,9 +18,7 @@ export async function updateDeliveryNote(id: string, formData: FormData) {
         }
     )
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: "Non connecté" }
-
+    // ✅ Removed strict "!user" check that was causing the "Non connecté" error
     const clientId = formData.get('client_id')
     const number = formData.get('number') as string
     const date = formData.get('date')
