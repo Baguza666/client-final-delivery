@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation' // ✅ Added router
 import PrintButton from '@/components/invoices/PrintButton'
 import { convertQuoteToInvoice } from '@/app/actions/convert'
 import watermarkImg from '@/assets/imsal-watermark.png'
@@ -54,8 +55,8 @@ function numberToFrenchWords(n: number): string {
 const formatNumber = (amount: number) => { if (amount === undefined || amount === null) return '0.00'; return new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); }
 const formatDate = (dateStr: string) => { try { const d = dateStr ? new Date(dateStr) : new Date(); if (isNaN(d.getTime())) return '-'; return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return '-'; } }
 
-// ✅ Chunking logic: 5 items per page if descriptions are long, adjust as needed
-const ITEMS_PER_PAGE = 5;
+// ✅ CHUNKING ENGINE: limits rows per page so text never overlaps
+const ITEMS_PER_PAGE = 4;
 function chunkItems(items: any[]) {
     const chunks = [];
     for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
@@ -64,13 +65,10 @@ function chunkItems(items: any[]) {
     return chunks.length > 0 ? chunks : [[]];
 }
 
-interface DocumentViewerProps {
-    document: any;
-    client: any;
-    ws: any;
-}
+interface DocumentViewerProps { document: any; client: any; ws: any; }
 
 export default function QuoteViewer({ document, client, ws }: DocumentViewerProps) {
+    const router = useRouter(); // ✅ Init Router
     const [showStamp, setShowStamp] = useState(true);
     const [showSignature, setShowSignature] = useState(true);
     const [isPending, startTransition] = useTransition();
@@ -79,32 +77,37 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
     // --- MATH ---
     const items = document.quote_items || [];
     const calculatedTotalHT = items.reduce((sum: number, item: any) => sum + (item.total || 0), 0) || 0;
-
     const discountPercent = document.discount || 0;
     const discountAmount = calculatedTotalHT * (discountPercent / 100);
     const netHT = calculatedTotalHT - discountAmount;
-
     const calculatedTVA = netHT * 0.20;
     const calculatedTotalTTC = netHT + calculatedTVA;
     const totalInWords = numberToFrenchWords(calculatedTotalTTC);
 
-    // --- DATES ---
-    const docDate = document.date ? new Date(document.date) : new Date();
-    const docDateStr = docDate.toISOString();
+    const docDateStr = document.date ? new Date(document.date).toISOString() : new Date().toISOString();
 
     const handleConvertClick = () => setIsModalOpen(true);
+
+    // ✅ Safe routing handler
     const confirmConversion = () => {
         startTransition(async () => {
             try {
-                await convertQuoteToInvoice(document.id);
+                const response = await convertQuoteToInvoice(document.id);
+                if (response.success && response.invoiceId) {
+                    setIsModalOpen(false);
+                    router.push(`/invoices/${response.invoiceId}`);
+                } else {
+                    alert(`Échec: ${response.error}`);
+                    setIsModalOpen(false);
+                }
             } catch (error: any) {
-                alert(`Erreur de conversion: ${error.message}`);
+                alert(`Erreur inattendue: ${error.message}`);
                 setIsModalOpen(false);
             }
         });
     };
 
-    // ✅ Chunk the items for pagination
+    // ✅ Generate pages
     const paginatedItems = chunkItems(items);
 
     return (
@@ -126,11 +129,8 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                         <span className="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </Link>
-
                     <DocumentActions table="quotes" id={document.id} currentStatus={document.status} redirectAfterDelete="/quotes" />
-
                     <div className="h-6 w-px bg-zinc-800 mx-2"></div>
-
                     <button
                         onClick={handleConvertClick}
                         disabled={isPending || document.status === 'accepted'}
@@ -163,14 +163,12 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                     <Image src={watermarkImg} alt="Watermark" fill className="object-contain" placeholder="blur" />
                                 </div>
                             </div>
-
-                            {/* Top Yellow Bar */}
                             <div className="h-2 w-full bg-[#EAB308] relative z-10"></div>
 
                             {/* CONTENT PADDING */}
                             <div className="p-[10mm] pb-8 flex-1 flex flex-col relative z-10">
 
-                                {/* 1. Header */}
+                                {/* Header */}
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="w-1/2">
                                         <img src="/logo.png" alt="IMSAL Services" width={150} className="object-contain" />
@@ -178,14 +176,14 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                     <div className="w-1/2 text-right">
                                         <h1 className="text-5xl font-[800] tracking-tighter text-zinc-900 uppercase">Devis</h1>
                                         <p className="text-zinc-600 font-bold mt-1 text-base tracking-widest">N° {document.number}</p>
-                                        {/* Page indicator if multi-page */}
+                                        {/* Show pagination if multiple pages exist */}
                                         {paginatedItems.length > 1 && (
-                                            <p className="text-zinc-400 text-xs mt-1">Page {pageIndex + 1} / {paginatedItems.length}</p>
+                                            <p className="text-zinc-400 text-xs mt-1 font-bold">Page {pageIndex + 1} / {paginatedItems.length}</p>
                                         )}
                                     </div>
                                 </div>
 
-                                {/* 2. Info */}
+                                {/* Info */}
                                 <div className="flex justify-between items-start mb-6 gap-12">
                                     <div className="w-1/2 text-sm leading-relaxed">
                                         <h3 className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2 border-b border-zinc-200 pb-1 w-20">Émetteur</h3>
@@ -211,7 +209,7 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                     </div>
                                 </div>
 
-                                {/* 3. Table */}
+                                {/* Table */}
                                 <div className="mb-2 flex-grow">
                                     <table className="w-full">
                                         <thead>
@@ -225,7 +223,7 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                         </thead>
                                         <tbody className="text-[12px]">
                                             {pageItems.map((item: any, idx: number) => (
-                                                <tr key={item.id || idx} className={`border-b ${idx === pageItems.length - 1 ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                                                <tr key={item.id || idx} className={`border-b ${idx === pageItems.length - 1 ? 'border-zinc-800' : 'border-zinc-200'} break-inside-avoid`}>
                                                     <td className="py-3 pr-2 font-semibold text-zinc-900 whitespace-pre-wrap">{item.description}</td>
                                                     <td className="py-3 text-center text-zinc-500 font-mono text-[11px] uppercase align-top">{item.unit || '-'}</td>
                                                     <td className="py-3 text-center text-zinc-600 font-mono align-top">{item.quantity}</td>
@@ -235,14 +233,16 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                             ))}
                                         </tbody>
                                     </table>
+
+                                    {/* Continuation Text for multi-page */}
                                     {!isLastPage && (
-                                        <div className="mt-4 text-center text-xs text-zinc-400 italic">
-                                            Suite à la page suivante...
+                                        <div className="mt-6 text-center text-xs font-bold text-zinc-400 italic">
+                                            — Suite à la page suivante —
                                         </div>
                                     )}
                                 </div>
 
-                                {/* 4. Totals & Stamp - ONLY ON LAST PAGE */}
+                                {/* Totals & Stamp - ONLY ON LAST PAGE */}
                                 {isLastPage && (
                                     <>
                                         <div className="break-inside-avoid font-['Inter'] mt-4 mb-6 grid grid-cols-2 gap-12 items-end">
@@ -304,7 +304,7 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                     </>
                                 )}
 
-                                {/* 6. Footer - HARDCODED LEGAL IDS (Shown on every page to preserve formatting space) */}
+                                {/* Footer - ALWAYS VISIBLE ON EVERY PAGE */}
                                 <div className="mt-auto border-t border-zinc-200 pt-4 text-[10px] text-zinc-500 uppercase tracking-widest leading-relaxed">
                                     <div className="flex justify-between items-end">
                                         <div className="w-2/3">
