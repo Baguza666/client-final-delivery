@@ -25,6 +25,11 @@ export async function convertQuoteToInvoice(quoteId: string) {
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     )
 
+    // ✅ Get the user to pass owner_id to RLS policies
+    const { data: authData } = await supabase.auth.getUser()
+    const user = authData?.user
+    if (!user) throw new Error("Vous devez être connecté pour convertir ce devis.")
+
     const { data: quote, error: quoteError } = await supabase.from('quotes').select('*, quote_items(*)').eq('id', quoteId).single()
     if (quoteError || !quote) throw new Error('Quote not found')
 
@@ -50,9 +55,10 @@ export async function convertQuoteToInvoice(quoteId: string) {
             due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             client_id: quote.client_id,
             workspace_id: quote.workspace_id,
+            owner_id: user.id, // ✅ Passing owner_id
             status: 'draft',
             discount: discount,
-            notes: quote.notes || null, // ✅ Inherit the custom notes from the quote
+            notes: quote.notes || null,
             total_ht: totalHT_Gross,
             total_tva: totalTVA,
             total_ttc: totalTTC,
@@ -81,6 +87,7 @@ export async function convertQuoteToInvoice(quoteId: string) {
         date: new Date().toISOString(),
         client_id: quote.client_id,
         workspace_id: quote.workspace_id,
+        owner_id: user.id, // ✅ Passing owner_id
         status: 'pending'
     }).select().single()
 
@@ -99,6 +106,7 @@ export async function convertQuoteToInvoice(quoteId: string) {
         date: new Date().toISOString(),
         client_id: quote.client_id,
         workspace_id: quote.workspace_id,
+        owner_id: user.id, // ✅ Passing owner_id
         status: 'pending',
         total_ht: totalHT_Gross,
         total_ttc: totalTTC,
