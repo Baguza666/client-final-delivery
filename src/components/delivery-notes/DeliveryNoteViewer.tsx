@@ -17,7 +17,6 @@ export default function DeliveryNoteViewer({ document, client, ws }: DocumentVie
     const [showSignature, setShowSignature] = useState(true);
 
     return (
-        // ✅ LAYOUT FIX: 'ml-72' pushes content, flex centers the A4 page in remaining space.
         <main className="ml-72 p-8 print:ml-0 print:p-0 flex flex-col items-center relative min-h-screen">
 
             <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 no-print">
@@ -26,6 +25,12 @@ export default function DeliveryNoteViewer({ document, client, ws }: DocumentVie
                         <span className="material-symbols-outlined text-lg">arrow_back</span>
                         Retour
                     </Link>
+
+                    {/* ✅ ADDED EDIT BUTTON HERE */}
+                    <Link href={`/delivery-notes/${document.id}/edit`} className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-md font-bold text-xs transition border border-white/10">
+                        <span className="material-symbols-outlined text-[16px]">edit</span> Modifier
+                    </Link>
+
                     <DocumentActions table="delivery_notes" id={document.id} currentStatus={document.status} redirectAfterDelete="/delivery-notes" />
                 </div>
                 <div className="flex items-center gap-6 bg-zinc-900 px-4 py-2 rounded-lg border border-zinc-800">
@@ -81,7 +86,6 @@ export default function DeliveryNoteViewer({ document, client, ws }: DocumentVie
                             <thead>
                                 <tr className="border-b-2 border-zinc-800">
                                     <th className="text-left text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[60%] tracking-widest">Description</th>
-                                    {/* ✅ UNIT COLUMN */}
                                     <th className="text-center text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[20%] tracking-widest">Unité</th>
                                     <th className="text-center text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[20%] tracking-widest">Qté</th>
                                 </tr>

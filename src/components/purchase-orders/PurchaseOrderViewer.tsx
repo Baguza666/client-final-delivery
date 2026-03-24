@@ -29,12 +29,19 @@ export default function PurchaseOrderViewer({ document, client, ws }: DocumentVi
     const totalInWords = numberToFrenchWords(document.total_ttc || 0);
 
     return (
-        // ✅ LAYOUT FIX: ml-72 + relative (no w-full)
         <main className="ml-72 p-8 print:ml-0 print:p-0 flex flex-col items-center relative min-h-screen">
 
             <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 no-print">
                 <div className="flex items-center gap-4">
-                    <Link href="/purchase-orders" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium"><span className="material-symbols-outlined text-lg">arrow_back</span> Retour</Link>
+                    <Link href="/purchase-orders" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium">
+                        <span className="material-symbols-outlined text-lg">arrow_back</span> Retour
+                    </Link>
+
+                    {/* ✅ ADDED EDIT BUTTON HERE */}
+                    <Link href={`/purchase-orders/${document.id}/edit`} className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-md font-bold text-xs transition border border-white/10">
+                        <span className="material-symbols-outlined text-[16px]">edit</span> Modifier
+                    </Link>
+
                     <DocumentActions table="purchase_orders" id={document.id} currentStatus={document.status} redirectAfterDelete="/purchase-orders" />
                 </div>
                 <div className="flex items-center gap-6 bg-zinc-900 px-4 py-2 rounded-lg border border-zinc-800">
@@ -74,7 +81,6 @@ export default function PurchaseOrderViewer({ document, client, ws }: DocumentVi
                             <p className="text-zinc-600">{client?.address}</p>
                             <p className="text-zinc-600">{client?.city} {client?.country}</p>
                             <div className="mt-4 flex gap-8 text-left">
-                                {/* ✅ REMOVED 'Livraison Souhaitée' HERE */}
                                 <div><p className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Date de commande</p><p className="font-semibold text-zinc-900">{formatDate(document.date)}</p></div>
                             </div>
                         </div>
@@ -85,7 +91,6 @@ export default function PurchaseOrderViewer({ document, client, ws }: DocumentVi
                             <thead>
                                 <tr className="border-b-2 border-zinc-800">
                                     <th className="text-left text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[40%] tracking-widest">Description</th>
-                                    {/* ✅ UNIT COLUMN */}
                                     <th className="text-center text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[10%] tracking-widest">Unité</th>
                                     <th className="text-center text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[10%] tracking-widest">Qté</th>
                                     <th className="text-right text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[20%] tracking-widest">Prix Unit.</th>
