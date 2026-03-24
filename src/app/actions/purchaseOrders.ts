@@ -18,7 +18,6 @@ export async function updatePurchaseOrder(id: string, formData: FormData) {
         }
     )
 
-    // ✅ Removed strict "!user" check that was causing the "Non connecté" error
     const clientId = formData.get('client_id')
     const number = formData.get('number') as string
     const date = formData.get('date')
@@ -32,7 +31,7 @@ export async function updatePurchaseOrder(id: string, formData: FormData) {
     const totalTVA = totalHT * 0.20
     const totalTTC = totalHT + totalTVA
 
-    // 1. Update main record
+    // 1. Update main record (Removed updated_at)
     const { error: poError } = await supabase
         .from('purchase_orders')
         .update({
@@ -41,8 +40,7 @@ export async function updatePurchaseOrder(id: string, formData: FormData) {
             date: date,
             status: status,
             total_ht: totalHT,
-            total_ttc: totalTTC,
-            updated_at: new Date().toISOString()
+            total_ttc: totalTTC
         })
         .eq('id', id)
 
