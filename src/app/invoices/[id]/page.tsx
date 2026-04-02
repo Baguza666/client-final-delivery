@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import Sidebar from '@/components/Sidebar'
 import { notFound } from 'next/navigation'
 import InvoiceViewer from '@/components/invoices/InvoiceViewer'
 
@@ -51,25 +52,28 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 
                 @media print {
                     @page { margin: 0; size: A4; }
+                    
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                    }
+
                     body, html {
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
                     }
                     
-                    /* NUKE GLOBAL LAYOUT SIDEBARS */
-                    aside, nav, [class*="fixed"], .w-72, .z-20 {
+                    aside, nav, #sidebar {
                         display: none !important;
-                        opacity: 0 !important;
-                        visibility: hidden !important;
                     }
 
-                    /* RESET MAIN MARGINS */
                     main, .ml-72 {
-                        margin-left: 0 !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
                         width: 100% !important;
                         max-width: 100% !important;
-                        padding: 0 !important;
                     }
 
                     .print-container {
@@ -92,6 +96,10 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                     }
                 }
             `}</style>
+
+            <div id="sidebar" className="fixed left-0 top-0 h-screen z-20 print:hidden">
+                <Sidebar />
+            </div>
 
             <InvoiceViewer
                 invoice={invoice}

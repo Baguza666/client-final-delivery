@@ -80,8 +80,8 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
     const paginatedItems = chunkItems(items);
 
     return (
-        <main className="ml-72 w-full p-8 flex flex-col items-center relative print:ml-0 print:w-full print:p-0 print:block print:bg-white">
-            <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 no-print">
+        <main className="ml-72 w-full p-8 flex flex-col items-center relative print:m-0 print:w-full print:p-0 print:block print:bg-white">
+            <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 print:hidden">
                 <div className="flex items-center gap-4">
                     <Link href="/invoices" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium">
                         <span className="material-symbols-outlined text-lg">arrow_back</span>
