@@ -1,6 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import Sidebar from '@/components/Sidebar'
 import { notFound } from 'next/navigation'
 import InvoiceViewer from '@/components/invoices/InvoiceViewer'
 
@@ -46,7 +45,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     };
 
     return (
-        <div className="bg-zinc-950 min-h-screen font-sans text-white flex print:block print:bg-white print:min-h-0">
+        <div className="bg-zinc-950 min-h-screen font-sans text-white print:bg-white print:min-h-0 print:block">
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Ballet&family=Inter:wght@400;500;600;700;800&display=swap');
                 
@@ -56,17 +55,17 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
                     }
                     
-                    #sidebar, .no-print {
+                    /* NUKE GLOBAL LAYOUT SIDEBARS */
+                    aside, nav, [class*="fixed"], .w-72, .z-20 {
                         display: none !important;
-                        visibility: hidden !important;
                         opacity: 0 !important;
+                        visibility: hidden !important;
                     }
 
-                    main {
+                    /* RESET MAIN MARGINS */
+                    main, .ml-72 {
                         margin-left: 0 !important;
                         width: 100% !important;
                         max-width: 100% !important;
@@ -93,10 +92,6 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                     }
                 }
             `}</style>
-
-            <div id="sidebar" className="fixed left-0 top-0 h-screen z-20 print:hidden">
-                <Sidebar />
-            </div>
 
             <InvoiceViewer
                 invoice={invoice}
