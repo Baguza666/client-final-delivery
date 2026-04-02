@@ -21,8 +21,6 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
     if (!invoice) return notFound()
 
-    // ... inside InvoiceDetailPage ...
-
     // 1. Resolve Base Workspace
     let baseWorkspace = invoice.workspace;
     if (!baseWorkspace) {
@@ -32,7 +30,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
     // 2. Hardcode Details
     const finalWorkspace = {
-        ...baseWorkspace, // ✅ Correct variable spread
+        ...baseWorkspace,
         name: "IMSAL SERVICES",
         address: "7 Lotis Najmat El Janoub",
         city: "El Jadida",
@@ -50,7 +48,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     };
 
     return (
-        <div className="bg-zinc-950 min-h-screen font-sans text-white flex">
+        // ✅ Added print:block and print:bg-white to disable the flex wrapper during print
+        <div className="bg-zinc-950 min-h-screen font-sans text-white flex print:block print:bg-white print:min-h-0">
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Ballet&family=Inter:wght@400;500;600;700;800&display=swap');
                 
@@ -63,14 +62,10 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
-                    body * { visibility: hidden; }
-                    .print-container, .print-container * {
-                        visibility: visible;
-                    }
+                    /* ✅ Removed the 'position: absolute' and 'visibility' hacks!
+                       Now the browser will respect normal page flow and stack pages vertically. */
                     .print-container {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
+                        position: relative !important;
                         width: 210mm !important;
                         height: 297mm !important;
                         margin: 0 !important;
@@ -78,7 +73,13 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                         background: white !important;
                         color: black !important;
                         box-shadow: none !important;
-                        overflow: hidden !important;
+                        page-break-after: always !important;
+                        break-after: page !important;
+                    }
+                    /* Prevent an empty blank page at the very end */
+                    .print-container:last-of-type {
+                        page-break-after: auto !important;
+                        break-after: auto !important;
                     }
                 }
             `}</style>
