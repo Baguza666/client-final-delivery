@@ -52,8 +52,7 @@ function numberToFrenchWords(n: number): string {
 const formatNumber = (amount: number) => { if (amount === undefined || amount === null) return '0.00'; return new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); }
 const formatDate = (dateStr: string) => { try { const d = dateStr ? new Date(dateStr) : new Date(); if (isNaN(d.getTime())) return '-'; return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return '-'; } }
 
-// ✅ CHUNKING ENGINE
-const ITEMS_PER_PAGE = 4; // Adjust this if you want more/less rows per page
+const ITEMS_PER_PAGE = 4;
 function chunkItems(items: any[]) {
     const chunks = [];
     for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
@@ -68,7 +67,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
     const [showStamp, setShowStamp] = useState(true);
     const [showSignature, setShowSignature] = useState(true);
 
-    // 🧮 DISCOUNT & TOTALS LOGIC
     const items = invoice.invoice_items || [];
     const calculatedTotalHT = items.reduce((sum: number, item: any) => sum + (item.total || 0), 0) || 0;
     const discountPercent = invoice.discount || 0;
@@ -80,12 +78,11 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
     const totalInWords = numberToFrenchWords(calculatedTotalTTC);
 
     const docDateStr = new Date(invoice.date).toISOString();
-
-    // ✅ Generate Pages
     const paginatedItems = chunkItems(items);
 
     return (
-        <main className="ml-72 w-full p-8 print:ml-0 print:p-0 flex flex-col items-center relative print:bg-white">
+        // ✅ FIX 1: Added print:block here to override the flexbox centering on print
+        <main className="ml-72 w-full p-8 flex flex-col items-center relative print:m-0 print:p-0 print:block print:bg-white">
 
             {/* TOOLBAR */}
             <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 no-print">
@@ -104,15 +101,14 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                 <PrintButton invoiceNumber={invoice.number} clientName={client?.name} />
             </div>
 
-            {/* ✅ PAGINATED A4 PAGES */}
-            <div className="flex flex-col gap-8 print:gap-0 print:bg-white">
+            {/* ✅ FIX 2: Added print:block here to allow child pages to break properly */}
+            <div className="flex flex-col gap-8 print:block print:gap-0 print:bg-white">
                 {paginatedItems.map((pageItems, pageIndex) => {
                     const isLastPage = pageIndex === paginatedItems.length - 1;
 
                     return (
-                        <div key={pageIndex} className="print-container bg-white text-zinc-900 shadow-2xl w-[210mm] min-h-[297mm] relative flex flex-col font-['Inter'] print:break-after-page print:shadow-none">
+                        <div key={pageIndex} className="print-container bg-white text-zinc-900 shadow-2xl w-[210mm] min-h-[297mm] relative flex flex-col font-['Inter'] print:shadow-none print:break-after-page print:break-inside-avoid">
 
-                            {/* Watermark */}
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
                                 <div className="relative w-[75%] aspect-square opacity-5">
                                     <Image src={watermarkImg} alt="Watermark" fill className="object-contain" placeholder="blur" />
@@ -120,9 +116,7 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                             </div>
                             <div className="h-2 w-full bg-[#EAB308] relative z-10"></div>
 
-                            {/* CONTENT PADDING */}
                             <div className="p-[10mm] pb-8 flex-1 flex flex-col relative z-10">
-
                                 {/* Header */}
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="w-1/2">
@@ -131,7 +125,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                     <div className="w-1/2 text-right">
                                         <h1 className="text-5xl font-[800] tracking-tighter text-zinc-900 uppercase">Facture</h1>
                                         <p className="text-zinc-600 font-bold mt-1 text-base tracking-widest">N° {invoice.number}</p>
-                                        {/* Pagination indicator */}
                                         {paginatedItems.length > 1 && (
                                             <p className="text-zinc-400 text-xs mt-1 font-bold">Page {pageIndex + 1} / {paginatedItems.length}</p>
                                         )}
@@ -194,7 +187,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                         </tbody>
                                     </table>
 
-                                    {/* Continuation Text for multi-page */}
                                     {!isLastPage && (
                                         <div className="mt-6 text-center text-xs font-bold text-zinc-400 italic">
                                             — Suite à la page suivante —
@@ -257,7 +249,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                             </div>
                                         </div>
 
-                                        {/* Stamp */}
                                         <div className="flex justify-end pr-8 pb-4 h-28 relative select-none">
                                             <div className="relative w-72 h-28">
                                                 {showStamp && (
