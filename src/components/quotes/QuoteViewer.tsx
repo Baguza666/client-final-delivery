@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation' // ✅ Added router
+import { useRouter } from 'next/navigation'
 import PrintButton from '@/components/invoices/PrintButton'
 import { convertQuoteToInvoice } from '@/app/actions/convert'
 import watermarkImg from '@/assets/imsal-watermark.png'
@@ -55,8 +55,8 @@ function numberToFrenchWords(n: number): string {
 const formatNumber = (amount: number) => { if (amount === undefined || amount === null) return '0.00'; return new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); }
 const formatDate = (dateStr: string) => { try { const d = dateStr ? new Date(dateStr) : new Date(); if (isNaN(d.getTime())) return '-'; return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return '-'; } }
 
-// ✅ CHUNKING ENGINE: Strictly limited to 2 to handle massive text descriptions safely
-const ITEMS_PER_PAGE = 2;
+// ✅ CHUNKING ENGINE: Reverted to 4 items per page
+const ITEMS_PER_PAGE = 4;
 function chunkItems(items: any[]) {
     const chunks = [];
     for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
@@ -68,7 +68,7 @@ function chunkItems(items: any[]) {
 interface DocumentViewerProps { document: any; client: any; ws: any; }
 
 export default function QuoteViewer({ document, client, ws }: DocumentViewerProps) {
-    const router = useRouter(); // ✅ Init Router
+    const router = useRouter();
     const [showStamp, setShowStamp] = useState(true);
     const [showSignature, setShowSignature] = useState(true);
     const [isPending, startTransition] = useTransition();
@@ -88,7 +88,6 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
 
     const handleConvertClick = () => setIsModalOpen(true);
 
-    // ✅ Safe routing handler
     const confirmConversion = () => {
         startTransition(async () => {
             try {
@@ -107,7 +106,6 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
         });
     };
 
-    // ✅ Generate pages
     const paginatedItems = chunkItems(items);
 
     return (
@@ -149,7 +147,7 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                 <PrintButton invoiceNumber={document.number} clientName={client?.name} />
             </div>
 
-            {/* ✅ PAGINATED A4 PAGES */}
+            {/* PAGINATED A4 PAGES */}
             <div className="flex flex-col gap-8 print:gap-0 print:bg-white">
                 {paginatedItems.map((pageItems, pageIndex) => {
                     const isLastPage = pageIndex === paginatedItems.length - 1;
@@ -176,7 +174,6 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                     <div className="w-1/2 text-right">
                                         <h1 className="text-5xl font-[800] tracking-tighter text-zinc-900 uppercase">Devis</h1>
                                         <p className="text-zinc-600 font-bold mt-1 text-base tracking-widest">N° {document.number}</p>
-                                        {/* Show pagination if multiple pages exist */}
                                         {paginatedItems.length > 1 && (
                                             <p className="text-zinc-400 text-xs mt-1 font-bold">Page {pageIndex + 1} / {paginatedItems.length}</p>
                                         )}
@@ -234,7 +231,6 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                         </tbody>
                                     </table>
 
-                                    {/* Continuation Text for multi-page */}
                                     {!isLastPage && (
                                         <div className="mt-6 text-center text-xs font-bold text-zinc-400 italic">
                                             — Suite à la page suivante —
