@@ -23,14 +23,12 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
 
     if (!quote) return notFound()
 
-    // 1. Resolve Base Workspace
     let baseWorkspace = quote.workspace;
     if (!baseWorkspace) {
         const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single();
         baseWorkspace = defaultWs || {};
     }
 
-    // 2. Create Final Workspace with Hardcoded Details
     const finalWorkspace = {
         ...baseWorkspace,
         name: "IMSAL SERVICES",
@@ -51,8 +49,6 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
 
     return (
         <div className="bg-zinc-950 min-h-screen font-sans text-white print:bg-white print:min-h-0 print:block">
-
-            {/* Print Styles */}
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Ballet&family=Inter:wght@400;500;600;700;800&display=swap');
                 
@@ -85,7 +81,9 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
                     .print-container {
                         position: relative !important;
                         width: 210mm !important;
-                        height: 297mm !important;
+                        height: 296mm !important; 
+                        max-height: 296mm !important;
+                        box-sizing: border-box !important;
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
@@ -93,7 +91,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
                         box-shadow: none !important;
                         page-break-after: always !important;
                         break-after: page !important;
-                        overflow: hidden !important;
+                        overflow: hidden !important; 
                     }
                     
                     .print-container:last-of-type {

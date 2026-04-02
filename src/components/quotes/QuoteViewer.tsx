@@ -55,8 +55,8 @@ function numberToFrenchWords(n: number): string {
 const formatNumber = (amount: number) => { if (amount === undefined || amount === null) return '0.00'; return new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); }
 const formatDate = (dateStr: string) => { try { const d = dateStr ? new Date(dateStr) : new Date(); if (isNaN(d.getTime())) return '-'; return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return '-'; } }
 
-// ✅ CHUNKING ENGINE: limits rows per page so text never overlaps
-const ITEMS_PER_PAGE = 4;
+// ✅ CHUNKING ENGINE: Strictly limited to 2 to handle massive text descriptions safely
+const ITEMS_PER_PAGE = 2;
 function chunkItems(items: any[]) {
     const chunks = [];
     for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
@@ -123,7 +123,7 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
             />
 
             {/* ACTION BAR */}
-            <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 no-print">
+            <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 no-print print:hidden">
                 <div className="flex items-center gap-4">
                     <Link href="/quotes" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium">
                         <span className="material-symbols-outlined text-lg">arrow_back</span>
