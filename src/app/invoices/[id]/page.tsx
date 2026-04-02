@@ -48,22 +48,27 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     };
 
     return (
-        // ✅ Added print:block and print:bg-white to disable the flex wrapper during print
         <div className="bg-zinc-950 min-h-screen font-sans text-white flex print:block print:bg-white print:min-h-0">
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Ballet&family=Inter:wght@400;500;600;700;800&display=swap');
                 
                 @media print {
                     @page { margin: 0; size: A4; }
-                    body, html {
+                    
+                    /* 1. BRUTALLY HIDE THE SIDEBAR AND TOOLBAR */
+                    .print-hide, .no-print {
+                        display: none !important;
+                    }
+
+                    /* 2. RESET ALL DESKTOP MARGINS SO THE PAGE STARTS AT 0,0 */
+                    body, html, main {
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
+                        width: 100% !important;
                     }
-                    /* ✅ Removed the 'position: absolute' and 'visibility' hacks!
-                       Now the browser will respect normal page flow and stack pages vertically. */
+
+                    /* 3. FORMAT THE PAGES PERFECTLY */
                     .print-container {
                         position: relative !important;
                         width: 210mm !important;
@@ -75,7 +80,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                         box-shadow: none !important;
                         page-break-after: always !important;
                         break-after: page !important;
+                        overflow: hidden !important;
                     }
+                    
                     /* Prevent an empty blank page at the very end */
                     .print-container:last-of-type {
                         page-break-after: auto !important;
@@ -84,7 +91,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 }
             `}</style>
 
-            <div className="fixed left-0 top-0 h-screen z-20 print:hidden">
+            {/* ✅ Added a hardcoded 'print-hide' class to guarantee this vanishes */}
+            <div className="fixed left-0 top-0 h-screen z-20 print-hide">
                 <Sidebar />
             </div>
 
