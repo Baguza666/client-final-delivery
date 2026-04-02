@@ -21,14 +21,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
     if (!invoice) return notFound()
 
-    // 1. Resolve Base Workspace
     let baseWorkspace = invoice.workspace;
     if (!baseWorkspace) {
         const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single();
         baseWorkspace = defaultWs || {};
     }
 
-    // 2. Hardcode Details
     const finalWorkspace = {
         ...baseWorkspace,
         name: "IMSAL SERVICES",
@@ -54,21 +52,27 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 
                 @media print {
                     @page { margin: 0; size: A4; }
-                    
-                    /* 1. BRUTALLY HIDE THE SIDEBAR AND TOOLBAR */
-                    .print-hide, .no-print {
-                        display: none !important;
-                    }
-
-                    /* 2. RESET ALL DESKTOP MARGINS SO THE PAGE STARTS AT 0,0 */
-                    body, html, main {
+                    body, html {
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
-                        width: 100% !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    
+                    #sidebar, .no-print {
+                        display: none !important;
+                        visibility: hidden !important;
+                        opacity: 0 !important;
                     }
 
-                    /* 3. FORMAT THE PAGES PERFECTLY */
+                    main {
+                        margin-left: 0 !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        padding: 0 !important;
+                    }
+
                     .print-container {
                         position: relative !important;
                         width: 210mm !important;
@@ -83,7 +87,6 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                         overflow: hidden !important;
                     }
                     
-                    /* Prevent an empty blank page at the very end */
                     .print-container:last-of-type {
                         page-break-after: auto !important;
                         break-after: auto !important;
@@ -91,8 +94,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
                 }
             `}</style>
 
-            {/* ✅ Added a hardcoded 'print-hide' class to guarantee this vanishes */}
-            <div className="fixed left-0 top-0 h-screen z-20 print-hide">
+            <div id="sidebar" className="fixed left-0 top-0 h-screen z-20 print:hidden">
                 <Sidebar />
             </div>
 

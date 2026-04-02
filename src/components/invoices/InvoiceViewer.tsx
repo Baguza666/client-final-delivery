@@ -7,7 +7,6 @@ import PrintButton from './PrintButton'
 import watermarkImg from '@/assets/imsal-watermark.png'
 import DocumentActions from '@/components/ui/DocumentActions'
 
-// --- HELPERS ---
 function numberToFrenchWords(n: number): string {
     if (!n || n === 0) return 'zéro';
     const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
@@ -81,10 +80,7 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
     const paginatedItems = chunkItems(items);
 
     return (
-        // ✅ FIX 1: Added print:block here to override the flexbox centering on print
-        <main className="ml-72 w-full p-8 flex flex-col items-center relative print:m-0 print:p-0 print:block print:bg-white">
-
-            {/* TOOLBAR */}
+        <main className="ml-72 w-full p-8 flex flex-col items-center relative print:ml-0 print:w-full print:p-0 print:block print:bg-white">
             <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 no-print">
                 <div className="flex items-center gap-4">
                     <Link href="/invoices" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium">
@@ -101,14 +97,12 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                 <PrintButton invoiceNumber={invoice.number} clientName={client?.name} />
             </div>
 
-            {/* ✅ FIX 2: Added print:block here to allow child pages to break properly */}
             <div className="flex flex-col gap-8 print:block print:gap-0 print:bg-white">
                 {paginatedItems.map((pageItems, pageIndex) => {
                     const isLastPage = pageIndex === paginatedItems.length - 1;
 
                     return (
                         <div key={pageIndex} className="print-container bg-white text-zinc-900 shadow-2xl w-[210mm] min-h-[297mm] relative flex flex-col font-['Inter'] print:shadow-none print:break-after-page print:break-inside-avoid">
-
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
                                 <div className="relative w-[75%] aspect-square opacity-5">
                                     <Image src={watermarkImg} alt="Watermark" fill className="object-contain" placeholder="blur" />
@@ -117,7 +111,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                             <div className="h-2 w-full bg-[#EAB308] relative z-10"></div>
 
                             <div className="p-[10mm] pb-8 flex-1 flex flex-col relative z-10">
-                                {/* Header */}
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="w-1/2">
                                         <img src="/logo.png" alt="IMSAL Services" width={150} className="object-contain" />
@@ -131,7 +124,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                     </div>
                                 </div>
 
-                                {/* Info */}
                                 <div className="flex justify-between items-start mb-6 gap-12">
                                     <div className="w-1/2 text-sm leading-relaxed">
                                         <h3 className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2 border-b border-zinc-200 pb-1 w-20">Émetteur</h3>
@@ -162,7 +154,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                     </div>
                                 </div>
 
-                                {/* Table */}
                                 <div className="mb-2 flex-grow">
                                     <table className="w-full">
                                         <thead>
@@ -186,7 +177,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                             ))}
                                         </tbody>
                                     </table>
-
                                     {!isLastPage && (
                                         <div className="mt-6 text-center text-xs font-bold text-zinc-400 italic">
                                             — Suite à la page suivante —
@@ -194,7 +184,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                     )}
                                 </div>
 
-                                {/* Totals & Notes - ONLY ON LAST PAGE */}
                                 {isLastPage && (
                                     <>
                                         <div className="break-inside-avoid font-['Inter'] mt-4 mb-6 grid grid-cols-2 gap-12 items-end">
@@ -280,7 +269,6 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                     </>
                                 )}
 
-                                {/* Footer - ALWAYS ON EVERY PAGE */}
                                 <div className="mt-auto border-t border-zinc-200 pt-4 text-[10px] text-zinc-500 uppercase tracking-widest leading-relaxed">
                                     <div className="flex justify-between items-end">
                                         <div className="w-2/3">
