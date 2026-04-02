@@ -21,7 +21,6 @@ export default async function DeliveryNotePage({ params }: PageProps) {
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     )
 
-    // 1. Fetch Delivery Note
     const { data: document } = await supabase
         .from('delivery_notes')
         .select('*, delivery_note_items(*)')
@@ -30,29 +29,24 @@ export default async function DeliveryNotePage({ params }: PageProps) {
 
     if (!document) return notFound()
 
-    // 2. Fetch Client
     const { data: client } = await supabase
         .from('clients')
         .select('*')
         .eq('id', document.client_id)
         .single()
 
-    // 3. Fetch Workspace
     let { data: workspace } = await supabase
         .from('workspaces')
         .select('*')
         .eq('id', document.workspace_id)
         .single()
 
-    // Fallback if no workspace is linked
     if (!workspace) {
         const { data: defaultWs } = await supabase.from('workspaces').select('*').limit(1).single()
         workspace = defaultWs || {}
     }
 
-    // 🔒 HARDCODE COMPANY DETAILS (STAMP FIX)
     const finalWorkspace = {
-        // Only spread the fetched data, do not reference 'finalWorkspace' here
         ...(workspace || {}),
         name: "IMSAL SERVICES",
         address: "7 Lotis Najmat El Janoub",
@@ -60,42 +54,50 @@ export default async function DeliveryNotePage({ params }: PageProps) {
         country: "Maroc",
         phone: "+212(0)6 61 43 52 83",
         email: "i.assal@imsalservices.com",
-        ice: "002972127000089",       // ✅ ICE
-        rc: "19215",                 // ✅ RC
-
-        // 🔹 Identifiant Fiscal (Aliases added to ensure viewer finds it)
+        ice: "002972127000089",
+        rc: "19215",
         if: "000081196000005",
         tax_id: "000081196000005",
         fiscal_id: "000081196000005",
-
-        cnss: "5249290",             // ✅ CNSS
-
-        // 🔹 Patente / Taxe Professionnelle (Aliases added)
+        cnss: "5249290",
         patente: "43003134",
         tp: "43003134",
     };
 
     return (
-        <div className="bg-black min-h-screen text-white font-['Inter']">
+        <div className="bg-black min-h-screen text-white font-['Inter'] print:bg-white print:min-h-0 print:block">
 
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Ballet&family=Inter:wght@400;500;600;700;800&display=swap');
                 
                 @media print {
                     @page { margin: 0; size: A4; }
+                    
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                    }
+
                     body, html {
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
                     }
-                    body * { visibility: hidden; }
-                    .print-container, .print-container * { visibility: visible; }
+                    
+                    aside, nav, #sidebar {
+                        display: none !important;
+                    }
+
+                    main, .ml-72 {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        width: 100% !important;
+                        max-width: 100% !important;
+                    }
+
                     .print-container {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
+                        position: relative !important;
                         width: 210mm !important;
                         height: 297mm !important;
                         margin: 0 !important;
@@ -103,19 +105,26 @@ export default async function DeliveryNotePage({ params }: PageProps) {
                         background: white !important;
                         color: black !important;
                         box-shadow: none !important;
+                        page-break-after: always !important;
+                        break-after: page !important;
                         overflow: hidden !important;
+                    }
+                    
+                    .print-container:last-of-type {
+                        page-break-after: auto !important;
+                        break-after: auto !important;
                     }
                 }
             `}</style>
 
-            <div className="fixed left-0 top-0 h-screen z-20 print:hidden">
+            <div id="sidebar" className="fixed left-0 top-0 h-screen z-20 print:hidden">
                 <Sidebar />
             </div>
 
             <DeliveryNoteViewer
                 document={document}
                 client={client}
-                ws={finalWorkspace} // ✅ Passes the hardcoded details
+                ws={finalWorkspace}
             />
         </div>
     )
