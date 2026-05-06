@@ -278,9 +278,14 @@ function formatAmt(n: number) { return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d)
 function buildInvoiceEmailHtml(invoice: any, items: any[], ws: any, client: any) {
     const totalHT = items.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0)
     const discount = invoice.discount || 0
+    const discountRatio = totalHT > 0 ? (1 - discount / 100) : 1
     const discountAmt = totalHT * (discount / 100)
     const netHT = totalHT - discountAmt
-    const tva = netHT * 0.20
+    const tva = items.reduce((s: number, i: any) => {
+        const lineHT = (Number(i.total) || 0) * discountRatio
+        const rate = i.tva_rate != null ? Number(i.tva_rate) : 20
+        return s + lineHT * (rate / 100)
+    }, 0)
     const ttc = netHT + tva
 
     const itemRows = items.map((i: any) => `
@@ -354,7 +359,7 @@ function buildInvoiceEmailHtml(invoice: any, items: any[], ws: any, client: any)
       <tr><td style="padding:6px 8px;font-size:12px;color:#374151;text-align:right">${discount > 0 ? 'Total HT Brut' : 'Total HT'}</td>
           <td style="padding:6px 8px;font-size:12px;color:#374151;text-align:right;font-family:monospace">${formatAmt(totalHT)} DH</td></tr>
       ${discountRow}
-      <tr><td style="padding:6px 8px;font-size:12px;color:#374151;text-align:right;border-top:1px solid #e5e7eb">TVA (20%)</td>
+      <tr><td style="padding:6px 8px;font-size:12px;color:#374151;text-align:right;border-top:1px solid #e5e7eb">TVA</td>
           <td style="padding:6px 8px;font-size:12px;color:#374151;text-align:right;font-family:monospace;border-top:1px solid #e5e7eb">${formatAmt(tva)} DH</td></tr>
       <tr><td colspan="2" style="padding:12px 8px 0">
         <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
