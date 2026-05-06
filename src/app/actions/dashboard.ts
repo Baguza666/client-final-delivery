@@ -2,6 +2,7 @@
 
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
 export interface DashboardStats {
     revenue: number
@@ -80,11 +81,22 @@ export async function getDashboardStats(): Promise<DashboardData> {
         { cookies: { get: (name) => cookieStore.get(name)?.value } },
     )
 
+    const { data: { user } } = await supabase.auth.getUser()
+    const wsId = user ? await getOrCreateWorkspace(supabase, user.id).catch(() => null) : null
+
     const [{ data: invoices }, { data: expenses }, { data: debts }, { data: clients }] = await Promise.all([
-        supabase.from('invoices').select('*, client:clients(name)').order('created_at', { ascending: false }),
-        supabase.from('expenses').select('*').order('date', { ascending: false }),
-        supabase.from('debts').select('*'),
-        supabase.from('clients').select('id'),
+        wsId
+            ? supabase.from('invoices').select('*, client:clients(name)').eq('workspace_id', wsId).order('created_at', { ascending: false })
+            : Promise.resolve({ data: [] }),
+        wsId
+            ? supabase.from('expenses').select('*').eq('workspace_id', wsId).order('date', { ascending: false })
+            : Promise.resolve({ data: [] }),
+        wsId
+            ? supabase.from('debts').select('*').eq('workspace_id', wsId)
+            : Promise.resolve({ data: [] }),
+        wsId
+            ? supabase.from('clients').select('id').eq('workspace_id', wsId)
+            : Promise.resolve({ data: [] }),
     ])
 
     const safeInvoices = invoices || []
