@@ -51,7 +51,12 @@ export async function createPurchaseOrder(formData: FormData) {
     const number = await generateNextNumber(supabase, 'purchase_orders', 'number', 'BC')
 
     const totalHT = items.reduce((sum, item) => sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0)
-    const totalTTC = totalHT * 1.20
+    const totalTVA = items.reduce((sum, item) => {
+        const lineHT = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0)
+        const rate = item.tva_rate != null ? Number(item.tva_rate) : 20
+        return sum + lineHT * (rate / 100)
+    }, 0)
+    const totalTTC = totalHT + totalTVA
 
     const { data: po, error: poError } = await supabase
         .from('purchase_orders')
@@ -99,7 +104,11 @@ export async function updatePurchaseOrder(id: string, formData: FormData) {
     const items = itemsJson ? JSON.parse(itemsJson) : []
 
     const totalHT = items.reduce((sum: number, item: any) => sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0)
-    const totalTVA = totalHT * 0.20
+    const totalTVA = items.reduce((sum: number, item: any) => {
+        const lineHT = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0)
+        const rate = item.tva_rate != null ? Number(item.tva_rate) : 20
+        return sum + lineHT * (rate / 100)
+    }, 0)
     const totalTTC = totalHT + totalTVA
 
     const { error: poError } = await supabase
