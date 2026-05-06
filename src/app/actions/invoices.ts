@@ -64,7 +64,7 @@ export async function createInvoice(formData: FormData) {
     const totalHT_Net = totalHT_Gross * discountRatio
     const totalTVA = items.reduce((sum: number, item: any) => {
         const lineHT = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * discountRatio
-        return sum + lineHT * ((Number(item.tva_rate) ?? 20) / 100)
+        return sum + lineHT * ((item.tva_rate != null ? Number(item.tva_rate) : 20) / 100)
     }, 0)
     const totalTTC = totalHT_Net + totalTVA
     // MAD-equivalent totals for reports (exchange_rate = 1 for MAD invoices, so no-op)
@@ -107,7 +107,7 @@ export async function createInvoice(formData: FormData) {
                 unit: item.unit || null,
                 quantity: Number(item.quantity) || 0,
                 unit_price: Number(item.unit_price) || 0,
-                tva_rate: Number(item.tva_rate) ?? 20,
+                tva_rate: item.tva_rate != null ? Number(item.tva_rate) : 20,
                 total: (Number(item.quantity) || 0) * (Number(item.unit_price) || 0),
                 // Conversion metadata — null for manually typed lines
                 original_price: item.original_price != null ? Number(item.original_price) : null,
@@ -154,7 +154,7 @@ export async function updateInvoice(invoiceId: string, formData: FormData) {
     const totalHT_Net = totalHT_Gross * discountRatio
     const totalTVA = items.reduce((sum: number, item: any) => {
         const lineHT = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * discountRatio
-        return sum + lineHT * ((Number(item.tva_rate) ?? 20) / 100)
+        return sum + lineHT * ((item.tva_rate != null ? Number(item.tva_rate) : 20) / 100)
     }, 0)
     const totalTTC = totalHT_Net + totalTVA
     const totalTTC_MAD = totalTTC * exchange_rate
@@ -190,7 +190,7 @@ export async function updateInvoice(invoiceId: string, formData: FormData) {
                 unit: item.unit || null,
                 quantity: Number(item.quantity) || 0,
                 unit_price: Number(item.unit_price) || 0,
-                tva_rate: Number(item.tva_rate) ?? 20,
+                tva_rate: item.tva_rate != null ? Number(item.tva_rate) : 20,
                 total: (Number(item.quantity) || 0) * (Number(item.unit_price) || 0),
                 original_price: item.original_price != null ? Number(item.original_price) : null,
                 base_currency: item.base_currency ?? null,
@@ -802,6 +802,7 @@ export async function generateSingleTemplate(id: string): Promise<{ success: boo
         .from('invoices')
         .select('*, invoice_items(*)')
         .eq('id', id)
+        .eq('workspace_id', wsId2)
         .single()
 
     if (!tpl) return { success: false, error: 'Modele introuvable' }
@@ -845,7 +846,7 @@ export async function generateSingleTemplate(id: string): Promise<{ success: boo
         )
     }
 
-    await supabase.from('invoices').update({ last_generated_at: newDate }).eq('id', id)
+    await supabase.from('invoices').update({ last_generated_at: newDate }).eq('id', id).eq('workspace_id', wsId2)
     revalidatePath('/invoices')
     revalidatePath('/invoices/recurring')
     return { success: true, invoiceId: newInvoice.id }
