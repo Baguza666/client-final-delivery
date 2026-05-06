@@ -2,6 +2,8 @@
 
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
 async function generateNextNumber(supabase: any, table: string, column: string, prefix: string) {
     const year = new Date().getFullYear()
@@ -25,11 +27,20 @@ export async function convertQuoteToInvoice(quoteId: string) {
             { cookies: { get: (name) => cookieStore.get(name)?.value } }
         )
 
-        // ✅ Gracefully check for user, but DO NOT block the conversion if testing/demoing
         const { data: authData } = await supabase.auth.getUser()
         const user = authData?.user
+        if (!user) return { success: false, error: 'Non authentifié.' }
 
-        const { data: quote, error: quoteError } = await supabase.from('quotes').select('*, quote_items(*)').eq('id', quoteId).single()
+        // Fetch workspace to verify ownership before reading or writing
+        const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
+        if (!workspaceId) return { success: false, error: 'Espace de travail introuvable.' }
+
+        const { data: quote, error: quoteError } = await supabase
+            .from('quotes')
+            .select('*, quote_items(*)')
+            .eq('id', quoteId)
+            .eq('workspace_id', workspaceId) // IDOR guard: only fetch quotes owned by this workspace
+            .single()
         if (quoteError || !quote) return { success: false, error: "Devis introuvable dans la base de données." }
 
         const invNum = await generateNextNumber(supabase, 'invoices', 'invoice_number', 'INV')
@@ -47,7 +58,6 @@ export async function convertQuoteToInvoice(quoteId: string) {
         // 1. INVOICE
         const invoicePayload: any = {
             invoice_number: invNum,
-            number: invNum,
             date: new Date().toISOString(),
             due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             client_id: quote.client_id,
@@ -58,8 +68,6 @@ export async function convertQuoteToInvoice(quoteId: string) {
             total_ht: totalHT_Gross,
             total_tva: totalTVA,
             total_ttc: totalTTC,
-            total: totalTTC,
-            total_amount: totalTTC
         }
         if (user) invoicePayload.owner_id = user.id // ✅ Only add if user exists
 
@@ -77,7 +85,7 @@ export async function convertQuoteToInvoice(quoteId: string) {
             unit: item.unit || null,
             quantity: item.quantity,
             unit_price: item.unit_price,
-            tva_rate: 20,
+            tva_rate: Number(item.tva_rate) || 20,
             total: item.total
         }))
         await supabase.from('invoice_items').insert(invoiceItems)
@@ -132,6 +140,70 @@ export async function convertQuoteToInvoice(quoteId: string) {
         await supabase.from('quotes').update({ status: 'accepted' }).eq('id', quoteId)
 
         return { success: true, invoiceId: newInvoice.id }
+
+    } catch (e: any) {
+        return { success: false, error: e.message }
+    }
+}
+
+export async function convertInvoiceToDeliveryNote(invoiceId: string) {
+    try {
+        const cookieStore = await cookies()
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            { cookies: { get: (name) => cookieStore.get(name)?.value } }
+        )
+
+        const { data: authData } = await supabase.auth.getUser()
+        const user = authData?.user
+        if (!user) return { success: false, error: 'Non authentifié.' }
+
+        const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
+        if (!workspaceId) return { success: false, error: 'Espace de travail introuvable.' }
+
+        const { data: invoice, error: invError } = await supabase
+            .from('invoices')
+            .select('*, invoice_items(*)')
+            .eq('id', invoiceId)
+            .eq('workspace_id', workspaceId) // IDOR guard
+            .single()
+
+        if (invError || !invoice) return { success: false, error: 'Facture introuvable.' }
+
+        const blNum = await generateNextNumber(supabase, 'delivery_notes', 'number', 'BL')
+
+        const blPayload: any = {
+            number: blNum,
+            date: new Date().toISOString(),
+            client_id: invoice.client_id,
+            workspace_id: invoice.workspace_id,
+            status: 'pending',
+        }
+        if (user) blPayload.owner_id = user.id
+
+        const { data: newBL, error: blError } = await supabase
+            .from('delivery_notes')
+            .insert(blPayload)
+            .select()
+            .single()
+
+        if (blError || !newBL) return { success: false, error: `Erreur BL: ${blError?.message}` }
+
+        const items = invoice.invoice_items || []
+        if (items.length > 0) {
+            await supabase.from('delivery_note_items').insert(
+                items.map((i: any) => ({
+                    delivery_note_id: newBL.id,
+                    description: i.description,
+                    unit: i.unit || null,
+                    quantity: i.quantity,
+                }))
+            )
+        }
+
+        revalidatePath('/delivery-notes')
+        return { success: true, deliveryNoteId: newBL.id }
 
     } catch (e: any) {
         return { success: false, error: e.message }

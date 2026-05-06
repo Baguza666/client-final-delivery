@@ -3,17 +3,33 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { getOrCreateWorkspace } from '@/lib/workspace'
+import { z } from 'zod'
 
-interface QuotePayload {
-    client_id: string
-    number: string
-    discount: number // ✅ New Field
-    total_amount: number
-    valid_until: string
-    items: any[]
-}
+const QuoteItemSchema = z.object({
+    description: z.string().min(1).max(500),
+    unit:        z.string().max(50).nullable().optional(),
+    quantity:    z.coerce.number().positive(),
+    unit_price:  z.coerce.number().nonnegative(),
+    tva_rate:    z.coerce.number().min(0).max(100).default(20),
+    total:       z.coerce.number().nonnegative(),
+})
 
-export async function createQuote(data: QuotePayload) {
+const QuoteSchema = z.object({
+    client_id:    z.string().uuid('ID client invalide'),
+    number:       z.string().min(1).max(100),
+    discount:     z.coerce.number().min(0).max(100).default(0),
+    total_amount: z.coerce.number().nonnegative(),
+    valid_until:  z.string().min(1),
+    items:        z.array(QuoteItemSchema).min(1, 'Au moins un article requis'),
+})
+
+type QuotePayload = z.infer<typeof QuoteSchema>
+
+export async function createQuote(rawData: QuotePayload) {
+    const parsed = QuoteSchema.safeParse(rawData)
+    if (!parsed.success) return { error: parsed.error.issues[0].message }
+    const data = parsed.data
     const cookieStore = await cookies()
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,14 +42,18 @@ export async function createQuote(data: QuotePayload) {
 
     if (authError || !user) return { error: "User not authenticated" }
 
-    const { data: workspace } = await supabase.from('workspaces').select('id').eq('owner_id', user.id).single()
-    if (!workspace) return { error: "No workspace found" }
+    let workspaceId: string
+    try {
+        workspaceId = await getOrCreateWorkspace(supabase, user.id)
+    } catch (e: any) {
+        return { error: e.message }
+    }
 
     // 1. Create Quote
     const { data: quote, error: quoteError } = await supabase
         .from('quotes')
         .insert({
-            workspace_id: workspace.id,
+            workspace_id: workspaceId,
             client_id: data.client_id,
             number: data.number,
             discount: data.discount || 0, // ✅ Save Discount
@@ -55,6 +75,7 @@ export async function createQuote(data: QuotePayload) {
             unit: item.unit || null,
             quantity: item.quantity,
             unit_price: item.unit_price,
+            tva_rate: Number(item.tva_rate) || 20,
             total: item.total
         }))
 

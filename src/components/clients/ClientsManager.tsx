@@ -1,166 +1,359 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react'; // ✅ Import useEffect
-import { createBrowserClient } from '@supabase/ssr';
-import { useRouter } from 'next/navigation';
-import ClientsList from './ClientsList';
+import { useEffect, useMemo, useState } from 'react'
+import { createBrowserClient } from '@supabase/ssr'
+import { useRouter } from 'next/navigation'
+import { useModal } from '@/components/ui/ModalProvider'
+import ConfirmationModal from '@/components/ui/ConfirmationModal'
+import EmptyState from '@/components/ui/EmptyState'
+import ClientsList from './ClientsList'
+import ClientFormModal, { ClientFormValues } from './ClientFormModal'
+import ClientDetailDrawer from './ClientDetailDrawer'
+import { ClientStats } from './ClientCard'
+import { createNewClient, updateClient, deleteClient, deleteClientsBulk } from '@/app/actions/clients'
 
-interface Client {
-    id: string;
-    name: string;
-    email: string | null;
-    phone: string | null;
-    city: string | null;
-    address: string | null;
-    ice: string | null;
-    created_at: string;
+interface ClientsManagerProps {
+    clients: any[]
+    statsById: Record<string, ClientStats>
+    isLoading: boolean
+    onChanged: () => Promise<void>
 }
 
-export default function ClientsManager({ clients: initialClients }: { clients: any[] }) {
-    // State
-    const [clients, setClients] = useState<Client[]>(initialClients);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
+const SkeletonCard = () => (
+    <div className="rounded-xl p-5 border border-zinc-800 bg-zinc-900/40 animate-pulse">
+        <div className="flex items-start justify-between mb-4 pl-7">
+            <div className="w-12 h-12 rounded-full bg-zinc-800" />
+        </div>
+        <div className="h-4 bg-zinc-800 rounded w-2/3 mb-2" />
+        <div className="h-3 bg-zinc-800 rounded w-1/3 mb-5" />
+        <div className="h-3 bg-zinc-800 rounded w-3/4 mb-2" />
+        <div className="h-3 bg-zinc-800 rounded w-1/2 mb-4" />
+        <div className="pt-3 border-t border-zinc-800/80 flex justify-between">
+            <div className="h-3 bg-zinc-800 rounded w-1/4" />
+            <div className="h-3 bg-zinc-800 rounded w-1/3" />
+        </div>
+    </div>
+)
 
-    // New Client Form State
-    const [newClientData, setNewClientData] = useState({
-        name: '', email: '', phone: '', city: '', address: '', ice: ''
-    });
+export default function ClientsManager({ clients, statsById, isLoading, onChanged }: ClientsManagerProps) {
+    const router = useRouter()
+    const { showModal } = useModal()
 
-    const router = useRouter();
-    const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const [searchTerm, setSearchTerm] = useState('')
+    const [typeFilter, setTypeFilter] = useState<'all' | 'client' | 'supplier'>('all')
+    const [submitting, setSubmitting] = useState(false)
 
-    // ✅ THE FIX: This synchronizes the state when the data actually arrives from the parent page
+    const [createOpen, setCreateOpen] = useState(false)
+    const [editing, setEditing] = useState<any | null>(null)
+    const [openClient, setOpenClient] = useState<any | null>(null)
+
+    const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+    const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+    const [deleteLoading, setDeleteLoading] = useState(false)
+
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+    const supabase = useMemo(
+        () => createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!),
+        [],
+    )
+
+    // Clear stale selections when client list changes
     useEffect(() => {
-        setClients(initialClients);
-    }, [initialClients]);
+        const validIds = new Set(clients.map((c) => c.id))
+        setSelectedIds((prev) => {
+            const next = new Set<string>()
+            prev.forEach((id) => {
+                if (validIds.has(id)) next.add(id)
+            })
+            return next.size === prev.size ? prev : next
+        })
+    }, [clients])
 
-    // 🔍 Search Logic
-    const filteredClients = clients.filter(client =>
-        (client.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (client.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-        (client.city?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-    );
+    const filteredClients = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase()
+        return clients.filter((client) => {
+            if (typeFilter === 'client' && client.type === 'supplier') return false
+            if (typeFilter === 'supplier' && client.type !== 'supplier' && client.type !== 'both') return false
+            if (!q) return true
+            return (
+                (client.name?.toLowerCase() || '').includes(q) ||
+                (client.email?.toLowerCase() || '').includes(q) ||
+                (client.city?.toLowerCase() || '').includes(q) ||
+                (client.phone || '').includes(q)
+            )
+        })
+    }, [clients, searchTerm, typeFilter])
 
-    // ➕ Handle Create Client
-    const handleCreate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
+    const selectionMode = selectedIds.size > 0
 
-        // Ensure we send NULL if owner_id is missing (handled by DB now)
-        const { data, error } = await supabase
-            .from('clients')
-            .insert([newClientData])
-            .select();
+    const typeTabs = useMemo(() => {
+        const tabBase = 'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border'
+        const tabActive = tabBase + ' bg-primary/10 border-primary/30 text-primary'
+        const tabInactive = tabBase + ' bg-white/[0.025] border-white/[0.06] text-zinc-500 hover:text-zinc-300'
+        return [
+            { val: 'all' as const, label: 'Tous', icon: 'groups', count: clients.length, cls: typeFilter === 'all' ? tabActive : tabInactive },
+            { val: 'client' as const, label: 'Clients', icon: 'person', count: clients.filter(c => c.type === 'client' || !c.type).length, cls: typeFilter === 'client' ? tabActive : tabInactive },
+            { val: 'supplier' as const, label: 'Fournisseurs', icon: 'store', count: clients.filter(c => c.type === 'supplier' || c.type === 'both').length, cls: typeFilter === 'supplier' ? tabActive : tabInactive },
+        ]
+    }, [clients, typeFilter])
 
-        if (error) {
-            alert('Erreur : ' + error.message);
-        } else if (data) {
-            setClients([data[0] as Client, ...clients]); // Optimistic update
-            setIsCreateModalOpen(false);
-            setNewClientData({ name: '', email: '', phone: '', city: '', address: '', ice: '' });
-            router.refresh();
+    const toggleSelect = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+        })
+    }
+
+    const clearSelection = () => setSelectedIds(new Set())
+
+    const handleCreate = async (values: ClientFormValues) => {
+        setSubmitting(true)
+        const fd = new FormData()
+        Object.entries(values).forEach(([k, v]) => v !== undefined && fd.append(k, String(v)))
+        const result = await createNewClient(fd)
+        setSubmitting(false)
+
+        if (result.success) {
+            setCreateOpen(false)
+            await onChanged()
+            showModal({ title: 'Client créé', message: result.message || 'Client ajouté avec succès.', type: 'success' })
+        } else {
+            showModal({ title: 'Erreur', message: result.message || 'Création impossible.', type: 'error' })
         }
-        setLoading(false);
-    };
+    }
+
+    const handleEdit = async (values: ClientFormValues) => {
+        if (!editing) return
+        setSubmitting(true)
+        const fd = new FormData()
+        fd.append('id', editing.id)
+        Object.entries(values).forEach(([k, v]) => k !== 'id' && v !== undefined && fd.append(k, String(v)))
+        const result = await updateClient(fd)
+        setSubmitting(false)
+
+        if (result.success) {
+            setEditing(null)
+            // If the drawer is showing this client, close + reopen with refreshed data
+            if (openClient && openClient.id === editing.id) setOpenClient(null)
+            await onChanged()
+            showModal({ title: 'Client mis à jour', message: 'Les modifications ont été enregistrées.', type: 'success' })
+        } else {
+            showModal({ title: 'Erreur', message: result.message || 'Mise à jour impossible.', type: 'error' })
+        }
+    }
+
+    const performDelete = async (target: any) => {
+        setDeleteLoading(true)
+        const result = await deleteClient(target.id)
+        setDeleteLoading(false)
+        setDeleteTarget(null)
+
+        if (result.success) {
+            if (openClient && openClient.id === target.id) setOpenClient(null)
+            await onChanged()
+            showModal({ title: 'Client supprimé', message: `${target.name || 'Le client'} a bien été supprimé.`, type: 'success' })
+        } else {
+            showModal({ title: 'Erreur', message: result.message || 'Suppression impossible.', type: 'error' })
+        }
+    }
+
+    const performBulkDelete = async () => {
+        const ids = Array.from(selectedIds)
+        if (!ids.length) return
+        setDeleteLoading(true)
+        const result = await deleteClientsBulk(ids)
+        setDeleteLoading(false)
+        setBulkDeleteOpen(false)
+
+        if (result.success) {
+            clearSelection()
+            await onChanged()
+            showModal({ title: 'Suppression effectuée', message: result.message || 'Suppression effectuée.', type: 'success' })
+        } else {
+            showModal({ title: 'Erreur', message: result.message || 'Suppression impossible.', type: 'error' })
+        }
+    }
 
     return (
-        <div className="min-h-screen bg-black pl-72 text-white">
-            <main className="max-w-7xl mx-auto p-12">
-
+        <div className="min-h-screen text-white">
+            <main className="max-w-7xl mx-auto p-8 md:p-12">
                 {/* HEADER */}
-                <div className="flex justify-between items-center mb-10">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 mb-8">
                     <div>
-                        <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Clients</h1>
-                        <p className="text-zinc-500 mt-2 font-medium">Gérez votre carnet d'adresses</p>
+                        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+                            <span className="material-symbols-outlined text-primary text-3xl">groups</span>
+                            Contacts
+                        </h1>
+                        <p className="text-zinc-500 mt-2 text-sm">Clients et fournisseurs de votre carnet d'adresses.</p>
                     </div>
                     <button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="bg-[#EAB308] text-black px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-wide hover:bg-[#FACC15] transition-all shadow-[0_0_20px_rgba(234,179,8,0.2)] flex items-center gap-2"
+                        onClick={() => setCreateOpen(true)}
+                        className="bg-brand-gradient text-white font-bold py-2.5 px-5 rounded-lg transition-all shadow-glow-sm hover:shadow-glow flex items-center gap-2 text-sm self-start md:self-auto"
                     >
-                        <span className="material-symbols-outlined text-[20px]">add</span>
-                        Nouveau Client
+                        <span className="material-symbols-outlined text-base">add</span>
+                        Nouveau Contact
                     </button>
                 </div>
 
+                {/* TYPE TABS */}
+                <div className="flex gap-2 mb-6">
+                    {typeTabs.map((tab) => (
+                        <button key={tab.val} onClick={() => setTypeFilter(tab.val)} className={tab.cls}>
+                            <span className="material-symbols-outlined text-[16px]">{tab.icon}</span>
+                            {tab.label}
+                            <span className="text-xs opacity-60 font-mono">{tab.count}</span>
+                        </button>
+                    ))}
+                </div>
+
                 {/* SEARCH BAR */}
-                <div className="mb-8 relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <span className="material-symbols-outlined text-zinc-500 group-focus-within:text-[#EAB308] transition-colors">search</span>
-                    </div>
+                <div className="mb-8 relative group max-w-2xl">
+                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-primary transition-colors pointer-events-none">
+                        search
+                    </span>
                     <input
                         type="text"
-                        placeholder="Rechercher un client (nom, email, ville)..."
+                        placeholder="Rechercher un client (nom, email, ville, téléphone)…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-zinc-900/50 border border-zinc-800 text-white rounded-xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-[#EAB308]/50 focus:border-[#EAB308] transition-all placeholder-zinc-600"
+                        aria-label="Rechercher"
+                        className="w-full bg-zinc-900/50 border border-zinc-800 text-white rounded-xl py-3.5 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors placeholder:text-zinc-600"
                     />
                 </div>
 
-                {/* LIST COMPONENT */}
-                <ClientsList initialClients={filteredClients} />
-
-                {/* CREATE MODAL */}
-                {isCreateModalOpen && (
-                    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-                        <div className="bg-[#111] border border-white/10 w-full max-w-lg rounded-2xl p-8 shadow-2xl animate-in zoom-in-95 duration-200 relative">
-                            <button
-                                onClick={() => setIsCreateModalOpen(false)}
-                                className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
-                            >
-                                <span className="material-symbols-outlined">close</span>
-                            </button>
-
-                            <h2 className="text-xl font-bold mb-1 text-white">Nouveau Client</h2>
-                            <p className="text-zinc-500 text-sm mb-6">Ajoutez une nouvelle entreprise.</p>
-
-                            <form onSubmit={handleCreate} className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Nom de l'entreprise</label>
-                                    <input required type="text" value={newClientData.name} onChange={e => setNewClientData({ ...newClientData, name: e.target.value })} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Email</label>
-                                        <input type="email" value={newClientData.email} onChange={e => setNewClientData({ ...newClientData, email: e.target.value })} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Téléphone</label>
-                                        <input type="text" value={newClientData.phone} onChange={e => setNewClientData({ ...newClientData, phone: e.target.value })} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none" />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Ville</label>
-                                        <input type="text" value={newClientData.city} onChange={e => setNewClientData({ ...newClientData, city: e.target.value })} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none" />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">ICE</label>
-                                        <input type="text" value={newClientData.ice} onChange={e => setNewClientData({ ...newClientData, ice: e.target.value })} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Adresse</label>
-                                    <textarea value={newClientData.address} onChange={e => setNewClientData({ ...newClientData, address: e.target.value })} rows={2} className="w-full mt-1 bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:border-[#EAB308] outline-none resize-none" />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full bg-[#EAB308] text-black font-bold py-4 rounded-xl mt-6 hover:bg-[#FACC15] transition-colors disabled:opacity-50"
-                                >
-                                    {loading ? 'Enregistrement...' : 'Enregistrer le client'}
-                                </button>
-                            </form>
-                        </div>
+                {/* CONTENT */}
+                {isLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <SkeletonCard key={i} />
+                        ))}
                     </div>
+                ) : clients.length === 0 ? (
+                    <EmptyState
+                        icon="groups"
+                        title="Aucun client"
+                        description="Ajoutez vos premiers clients pour commencer à émettre devis et factures."
+                        ctaLabel="Ajouter un client"
+                    >
+                        <button
+                            onClick={() => setCreateOpen(true)}
+                            className="mt-2 bg-brand-gradient text-white font-bold py-2 px-5 rounded-lg text-sm shadow-glow-sm hover:shadow-glow transition inline-flex items-center gap-2"
+                        >
+                            <span className="material-symbols-outlined text-base">add</span>
+                            Ajouter un client
+                        </button>
+                    </EmptyState>
+                ) : filteredClients.length === 0 ? (
+                    <EmptyState
+                        icon="search_off"
+                        title="Aucun résultat"
+                        description={`Aucun client ne correspond à « ${searchTerm} ».`}
+                    />
+                ) : (
+                    <ClientsList
+                        clients={filteredClients}
+                        statsById={statsById}
+                        selectedIds={selectedIds}
+                        selectionMode={selectionMode}
+                        onOpen={(c) => setOpenClient(c)}
+                        onEdit={(c) => setEditing(c)}
+                        onDelete={(c) => setDeleteTarget(c)}
+                        onToggleSelect={toggleSelect}
+                    />
                 )}
-
             </main>
+
+            {/* BULK SELECTION BAR */}
+            {selectionMode && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[150] bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl px-5 py-3 flex items-center gap-4 animate-fade-in">
+                    <span className="text-sm font-medium text-white">
+                        <span className="text-primary font-bold">{selectedIds.size}</span> sélectionné(s)
+                    </span>
+                    <button
+                        type="button"
+                        onClick={clearSelection}
+                        className="text-xs uppercase tracking-wider font-bold text-zinc-400 hover:text-white transition"
+                    >
+                        Annuler
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setBulkDeleteOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold text-white bg-red-500 hover:bg-red-600 transition uppercase tracking-wider"
+                    >
+                        <span className="material-symbols-outlined text-base">delete</span>
+                        Supprimer
+                    </button>
+                </div>
+            )}
+
+            {/* CREATE / EDIT MODALS */}
+            <ClientFormModal
+                isOpen={createOpen}
+                mode="create"
+                submitting={submitting}
+                onClose={() => setCreateOpen(false)}
+                onSubmit={handleCreate}
+            />
+            <ClientFormModal
+                isOpen={!!editing}
+                mode="edit"
+                initial={editing ? {
+                    id: editing.id,
+                    name: editing.name || '',
+                    email: editing.email || '',
+                    phone: editing.phone || '',
+                    city: editing.city || '',
+                    address: editing.address || '',
+                    ice: editing.ice || '',
+                    type: editing.type || 'client',
+                } : undefined}
+                submitting={submitting}
+                onClose={() => setEditing(null)}
+                onSubmit={handleEdit}
+            />
+
+            {/* DETAIL DRAWER */}
+            <ClientDetailDrawer
+                client={openClient}
+                stats={openClient ? statsById[openClient.id] : undefined}
+                onClose={() => setOpenClient(null)}
+                onEdit={() => {
+                    if (openClient) {
+                        setEditing(openClient)
+                        setOpenClient(null)
+                    }
+                }}
+                onDelete={() => {
+                    if (openClient) {
+                        setDeleteTarget(openClient)
+                        setOpenClient(null)
+                    }
+                }}
+            />
+
+            {/* DELETE CONFIRMATIONS */}
+            <ConfirmationModal
+                isOpen={!!deleteTarget}
+                title="Supprimer ce client ?"
+                message={`Cette action est irréversible. Toutes les données associées à « ${deleteTarget?.name || ''} » seront perdues.`}
+                onConfirm={() => deleteTarget && performDelete(deleteTarget)}
+                onCancel={() => setDeleteTarget(null)}
+                danger
+                isLoading={deleteLoading}
+            />
+            <ConfirmationModal
+                isOpen={bulkDeleteOpen}
+                title={`Supprimer ${selectedIds.size} client(s) ?`}
+                message="Cette action est irréversible et concernera tous les clients sélectionnés."
+                onConfirm={performBulkDelete}
+                onCancel={() => setBulkDeleteOpen(false)}
+                danger
+                isLoading={deleteLoading}
+            />
         </div>
-    );
+    )
 }

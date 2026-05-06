@@ -5,9 +5,10 @@ import { getOrCreateWorkspace } from '@/lib/workspace'
 
 function safeNext(raw: string | null): string {
     if (!raw) return '/dashboard'
-    if (raw.startsWith('/') && !raw.startsWith('//') && !raw.includes('://')) {
-        return raw
-    }
+    try {
+        const url = new URL(raw, 'https://placeholder.invalid')
+        if (url.origin === 'https://placeholder.invalid') return raw
+    } catch { /* invalid URL */ }
     return '/dashboard'
 }
 

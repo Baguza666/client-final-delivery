@@ -3,6 +3,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
 export async function createQuote(formData: FormData) {
   const cookieStore = await cookies()
@@ -20,18 +21,14 @@ export async function createQuote(formData: FormData) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const userId = user ? user.id : 'demo-user-id'
+  if (!user) return { success: false, error: 'Non authentifié' }
 
-  let workspaceId = null
-  const { data: workspace } = await supabase.from('workspaces').select('id').eq('owner_id', userId).single()
-
-  if (workspace) workspaceId = workspace.id
-  else {
-    const { data: anyWs } = await supabase.from('workspaces').select('id').limit(1).single()
-    workspaceId = anyWs?.id
+  let workspaceId: string
+  try {
+    workspaceId = await getOrCreateWorkspace(supabase, user.id)
+  } catch (e: any) {
+    return { success: false, error: e.message }
   }
-
-  if (!workspaceId) return { success: true, id: 'demo-mode-no-db' }
 
   try {
     const items = JSON.parse(formData.get('items') as string)
@@ -48,14 +45,12 @@ export async function createQuote(formData: FormData) {
       .insert({
         workspace_id: workspaceId,
         client_id: formData.get('client_id'),
-        number, // ✅ Use custom or generated number
+        number,
         date: formData.get('date'),
         status: 'draft',
-        subtotal: Number(formData.get('subtotal')),
         discount_rate: Number(formData.get('discount_rate')),
-        tax_rate: 20,
-        notes: formData.get('notes') as string,
-        total: Number(formData.get('total_ttc'))
+        notes: formData.get('notes') as string | null,
+        total_amount: Number(formData.get('total_ttc')),
       })
       .select()
       .single()
@@ -69,6 +64,7 @@ export async function createQuote(formData: FormData) {
         unit: item.unit || 'u',
         quantity: item.quantity,
         unit_price: item.unit_price,
+        tva_rate: Number(item.tva_rate) || 20,
         total: item.total
       }))
     )
@@ -107,13 +103,12 @@ export async function updateQuote(quoteId: string, formData: FormData) {
       .from('quotes')
       .update({
         client_id: formData.get('client_id'),
-        ...(number ? { number: number } : {}), // ✅ Update number if provided
+        ...(number ? { number } : {}),
         date: formData.get('date'),
-        subtotal: Number(formData.get('subtotal')),
         discount_rate: Number(formData.get('discount_rate')),
-        notes: formData.get('notes') as string,
-        total: Number(formData.get('total_ttc')),
-        updated_at: new Date().toISOString()
+        notes: formData.get('notes') as string | null,
+        total_amount: Number(formData.get('total_ttc')),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', quoteId)
 
@@ -129,6 +124,7 @@ export async function updateQuote(quoteId: string, formData: FormData) {
         unit: item.unit || 'u',
         quantity: item.quantity,
         unit_price: item.unit_price,
+        tva_rate: Number(item.tva_rate) || 20,
         total: item.total
       }))
     )

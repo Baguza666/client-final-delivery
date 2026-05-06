@@ -3,6 +3,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
 export async function payDebt(debtId: string, amount: number, debtName: string) {
     const cookieStore = await cookies()
@@ -12,11 +13,18 @@ export async function payDebt(debtId: string, amount: number, debtName: string) 
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     )
 
-    // 1. Verify the debt exists
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié.' }
+
+    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
+    if (!workspaceId) return { error: 'Espace de travail introuvable.' }
+
+    // Fetch debt and verify it belongs to the authenticated user's workspace
     const { data: debt } = await supabase
         .from('debts')
         .select('*')
         .eq('id', debtId)
+        .eq('workspace_id', workspaceId) // IDOR guard
         .single()
 
     if (!debt) return { error: "Dette introuvable" }
@@ -24,7 +32,6 @@ export async function payDebt(debtId: string, amount: number, debtName: string) 
     const newRemaining = debt.remaining_amount - amount
     const newStatus = newRemaining <= 0 ? 'paid' : 'active'
 
-    // 2. Update the Debt
     const { error: debtError } = await supabase
         .from('debts')
         .update({
@@ -32,12 +39,12 @@ export async function payDebt(debtId: string, amount: number, debtName: string) 
             status: newStatus
         })
         .eq('id', debtId)
+        .eq('workspace_id', workspaceId)
 
     if (debtError) return { error: debtError.message }
 
-    // 3. Create a Trace (Expense) for this payment
-    // This ensures your Treasury graph updates automatically!
     await supabase.from('expenses').insert({
+        workspace_id: workspaceId,
         description: `Remboursement: ${debtName}`,
         amount: amount,
         category: 'Dette',
@@ -45,6 +52,6 @@ export async function payDebt(debtId: string, amount: number, debtName: string) 
     })
 
     revalidatePath('/expenses')
-    revalidatePath('/') // Update dashboard too
+    revalidatePath('/')
     return { success: true }
 }

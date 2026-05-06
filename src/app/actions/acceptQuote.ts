@@ -3,8 +3,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createHash } from 'crypto'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
-// --- HELPER FUNCTIONS ---
 async function createClient() {
     const cookieStore = await cookies()
     return createServerClient(
@@ -28,50 +28,62 @@ function generateHash(data: any): string {
     return createHash('md5').update(str).digest('hex')
 }
 
-// --- MAIN ACTION ---
-
 export async function acceptQuote(quoteId: string) {
     const supabase = await createClient()
 
-    // 1. Fetch Quote & Items
-    const { data: quote } = await supabase.from('quotes').select('*, quote_items(*)').eq('id', quoteId).single()
+    // Auth check — must be first
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Non authentifié.')
+
+    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
+    if (!workspaceId) throw new Error('Espace de travail introuvable.')
+
+    // Fetch Quote — scoped to this workspace to prevent IDOR
+    const { data: quote } = await supabase
+        .from('quotes')
+        .select('*, quote_items(*)')
+        .eq('id', quoteId)
+        .eq('workspace_id', workspaceId) // IDOR guard
+        .single()
+
     if (!quote) throw new Error("Devis introuvable")
 
-    // 2. Check Idempotency
+    // Idempotency check
     const { data: existing } = await supabase.from('purchase_orders').select('id').eq('quote_id', quoteId).single()
     if (existing) return { success: false, message: "Documents déjà générés" }
 
     const currentHash = generateHash(quote.quote_items)
 
-    // 3. Generate PO
+    // Generate PO
     const { data: po, error: poError } = await supabase.from('purchase_orders').insert({
         quote_id: quote.id,
-        workspace_id: quote.workspace_id,
+        workspace_id: workspaceId, // Use verified workspaceId, not quote.workspace_id
         number: `PO-${quote.number}`,
         status: 'draft',
         content_hash: currentHash
     }).select().single()
 
-    // 🔴 CRASH FIX: Check if PO creation failed
     if (poError || !po) {
         console.error("PO Error:", poError)
         return { success: false, message: "Erreur création Bon de Commande: " + poError?.message }
     }
 
-    // 4. Generate PO Items
+    // Generate PO Items
     const poItems = quote.quote_items.map((item: any) => ({
-        po_id: po.id, // This is now safe because we checked 'po' above
+        purchase_order_id: po.id,
         line_uid: item.id,
         description: item.description,
         quantity: item.quantity,
         unit_price: item.unit_price,
+        tva_rate: Number(item.tva_rate) || 20,
         total: item.total
     }))
-    await supabase.from('po_items').insert(poItems)
+    await supabase.from('purchase_order_items').insert(poItems)
 
-    // 5. Generate DN
+    // Generate DN
     const { data: dn } = await supabase.from('delivery_notes').insert({
         purchase_order_id: po.id,
+        workspace_id: workspaceId,
         number: `DN-${quote.number}`,
         status: 'draft',
         upstream_hash_at_sync: currentHash
@@ -79,44 +91,43 @@ export async function acceptQuote(quoteId: string) {
 
     if (!dn) return { success: false, message: "Erreur création Bon de Livraison" }
 
-    // 6. Generate DN Items
+    // Generate DN Items
     const dnItems = poItems.map((item: any) => ({
-        dn_id: dn.id,
+        delivery_note_id: dn.id,
         line_uid: item.line_uid,
         description: item.description,
-        quantity_delivered: item.quantity,
+        quantity: item.quantity,
     }))
-    await supabase.from('dn_items').insert(dnItems)
+    await supabase.from('delivery_note_items').insert(dnItems)
 
-    // 7. Generate Invoice
+    // Generate Invoice
     const { data: invoice } = await supabase.from('invoices').insert({
-        delivery_note_id: dn.id,
         client_id: quote.client_id,
-        workspace_id: quote.workspace_id,
-        number: `INV-${quote.number}`,
+        workspace_id: workspaceId,
+        invoice_number: `INV-${quote.number}`,
         status: 'draft',
-        total_amount: quote.total_amount,
-        upstream_hash_at_sync: currentHash
+        total_ttc: quote.total_amount,
     }).select().single()
 
     if (!invoice) return { success: false, message: "Erreur création Facture" }
 
-    // 8. Generate Invoice Items
+    // Generate Invoice Items
     const invoiceItems = dnItems.map((item: any, idx: number) => {
         const originalItem = poItems[idx]
         return {
             invoice_id: invoice.id,
             line_uid: item.line_uid,
             description: item.description,
-            quantity: item.quantity_delivered,
+            quantity: item.quantity,
             unit_price: originalItem.unit_price,
-            total: item.quantity_delivered * originalItem.unit_price
+            tva_rate: originalItem.tva_rate,
+            total: item.quantity * originalItem.unit_price
         }
     })
     await supabase.from('invoice_items').insert(invoiceItems)
 
-    // 9. Update Quote Status
-    await supabase.from('quotes').update({ status: 'accepted' }).eq('id', quoteId)
+    // Update Quote Status — scoped to workspace
+    await supabase.from('quotes').update({ status: 'accepted' }).eq('id', quoteId).eq('workspace_id', workspaceId)
 
     return { success: true }
 }

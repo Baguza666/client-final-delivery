@@ -1,7 +1,8 @@
+import { Suspense } from 'react'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import Sidebar from '@/components/Sidebar'
-import NewInvoiceForm from '@/components/invoices/NewInvoiceForm'
+import InvoiceBuilder from '@/components/invoices/InvoiceBuilder'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
 export default async function NewInvoicePage() {
     const cookieStore = await cookies()
@@ -11,36 +12,26 @@ export default async function NewInvoicePage() {
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     )
 
-    // 1. Fetch Clients (for the dropdown)
-    const { data: clients } = await supabase.from('clients').select('*').order('name')
+    const { data: { user } } = await supabase.auth.getUser()
+    const workspaceId = user ? await getOrCreateWorkspace(supabase, user.id) : ''
 
-    // 2. CALCULATE NEXT NUMBER ("1/26")
-    // We count invoices created this year (2026)
-    const currentYear = new Date().getFullYear()
-    const startOfYear = `${currentYear}-01-01`
-
-    const { count } = await supabase
-        .from('invoices')
-        .select('*', { count: 'exact', head: true })
-        .gte('date', startOfYear)
-
-    // Logic: Count + 1 / Year (last 2 digits)
-    const nextSequence = (count || 0) + 1
-    const yearShort = currentYear.toString().slice(-2)
-    const nextNumber = `${nextSequence}/${yearShort}`
+    const [{ data: clients }, { data: products }] = await Promise.all([
+        supabase.from('clients').select('id, name').order('name'),
+        supabase.from('products')
+            .select('id, name, description, price, unit, base_currency')
+            .eq('workspace_id', workspaceId)
+            .order('name'),
+    ])
 
     return (
-        <div className="bg-background-dark min-h-screen font-sans text-white flex">
-            <div className="fixed left-0 top-0 h-screen z-20">
-                <Sidebar />
-            </div>
-
-            <main className="ml-72 w-full p-8">
-                <h1 className="text-3xl font-bold mb-8">NOUVELLE FACTURE</h1>
-
-                {/* Pass the calculated number to the form */}
-                <NewInvoiceForm clients={clients || []} nextNumber={nextNumber} />
-            </main>
-        </div>
+        <main className="px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+            <header className="mb-8 max-w-5xl mx-auto">
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary mb-1.5">Facturation</p>
+                <h1 className="text-2xl md:text-3xl font-[800] tracking-tight text-white">Nouvelle Facture</h1>
+            </header>
+            <Suspense>
+                <InvoiceBuilder clients={clients || []} products={products || []} />
+            </Suspense>
+        </main>
     )
 }

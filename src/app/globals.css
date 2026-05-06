@@ -2,87 +2,174 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 1. DEFINE VARIABLES (Standard CSS method) */
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Invoicify 2.0 · Design Tokens
+   ───────────────────────────────────────────────────────────── */
 :root {
-  --background-dark: #050505;
-  --primary: #f4b943;
-  --text-secondary: #a1a1aa;
+  /* Surfaces */
+  --bg-base:          #020617;
+  --bg-sidebar:       #0F172A;
+  --bg-card:          rgba(255,255,255,0.025);
+  --bg-card-hover:    rgba(255,255,255,0.048);
+  --bg-input:         rgba(255,255,255,0.04);
 
-  /* Gradients */
-  --gold-gradient: linear-gradient(135deg, #f4b943 0%, #edc967 100%);
+  /* Borders */
+  --border-subtle:    rgba(255,255,255,0.06);
+  --border-default:   rgba(255,255,255,0.10);
+  --border-strong:    rgba(255,255,255,0.18);
+
+  /* Brand */
+  --primary:          #6366F1;
+  --primary-dark:     #4F46E5;
+  --accent:           #8B5CF6;
+  --brand-gradient:   linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+
+  /* Status */
+  --status-paid:      #10B981;
+  --status-pending:   #F59E0B;
+  --status-overdue:   #EF4444;
+  --status-draft:     #71717A;
+
+  /* Sidebar */
+  --sidebar-w:        260px;
+  --sidebar-sm:       64px;
+  --topbar-h:         56px;
+  --bottom-nav-h:     64px;
 }
 
-/* 2. BASE STYLES */
+/* ─────────────────────────────────────────────────────────────
+   Base
+   ───────────────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  background-color: var(--background-dark);
-  color: white;
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-base);
+  color: #fff;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* 3. UTILITIES & COMPONENTS */
+/* ─────────────────────────────────────────────────────────────
+   Component Utilities
+   ───────────────────────────────────────────────────────────── */
+@layer components {
+  /* Card surface */
+  .card {
+    @apply bg-slate-900/50 border border-slate-800 rounded-2xl;
+  }
+  .card-interactive {
+    @apply card transition-all duration-200 hover:bg-slate-800/60 hover:border-slate-700 cursor-pointer;
+  }
+
+  /* Form input */
+  .field {
+    @apply w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5
+           text-sm text-white placeholder:text-white/25
+           focus:border-primary/60 focus:ring-1 focus:ring-primary/30
+           outline-none transition-all;
+  }
+  .field-label {
+    @apply block text-[10px] font-bold uppercase tracking-[0.14em] text-white/40 mb-1.5;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-brand-gradient text-white font-bold
+           px-4 py-2.5 rounded-xl text-sm
+           shadow-glow-sm hover:shadow-glow
+           transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent border border-white/[0.12] text-white/70 font-semibold
+           px-4 py-2.5 rounded-xl text-sm
+           hover:bg-white/[0.06] hover:text-white hover:border-white/[0.20]
+           transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2
+           bg-rose-500 text-white font-bold
+           px-4 py-2.5 rounded-xl text-sm
+           hover:bg-rose-400 transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Page header pattern */
+  .page-eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-[0.18em] text-primary/80 mb-1.5;
+  }
+  .page-title {
+    @apply text-2xl md:text-3xl font-[900] tracking-tight text-white;
+  }
+  .page-subtitle {
+    @apply text-sm text-white/40 mt-1;
+  }
+
+  /* Scrollbar */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .thin-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+  .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 99px; }
+  .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Global Utilities
+   ───────────────────────────────────────────────────────────── */
 @layer utilities {
-
-  /* Custom Animation Class */
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
+  .bg-brand-gradient { background: var(--brand-gradient); }
+  .text-brand-gradient {
+    background: var(--brand-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
-  /* Scrollbar Hiding */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  .glass {
+    background: rgba(2,6,23,0.80);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-subtle);
   }
 
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  /* Text Shadow for Dashboard numbers */
-  .text-shadow {
-    text-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
-  }
+  /* Safe area padding for iOS bottom bar */
+  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
 }
 
-/* 4. CUSTOM CLASSES */
-.glass-card {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+/* ─────────────────────────────────────────────────────────────
+   Animations
+   ───────────────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
-.glass-header {
-  background: rgba(5, 5, 5, 0.7);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
-
-.bg-gold-gradient {
-  background: var(--gold-gradient);
-}
-
-.text-gold-gradient {
-  background: var(--gold-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.clip-path-triangle {
-  clip-path: polygon(100% 0, 0% 100%, 100% 100%);
-}
-
-/* 5. ANIMATIONS */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.animate-fade-up   { animation: fadeUp 0.3s ease-out forwards; }
+.animate-fade-in   { animation: fadeIn 0.2s ease-out forwards; }
+.animate-slide-in  { animation: slideInLeft 0.25s ease-out forwards; }
+
+@media print {
+  body { background-color: white !important; }
+  @page { margin: 0; size: auto; }
 }

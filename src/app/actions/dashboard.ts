@@ -3,56 +3,260 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export async function getDashboardStats() {
+export interface DashboardStats {
+    revenue: number
+    expenses: number
+    treasury: number
+    pending: number
+    debt: number
+}
+
+export interface DebtSummary {
+    activeCount: number
+    totalRemaining: number
+    totalAmount: number
+    progressPct: number     // 0..100, weighted by total_amount
+    nextDueDate: string | null
+}
+
+export interface TopClient {
+    name: string
+    revenue: number
+    invoiceCount: number
+}
+
+export interface MonthBar {
+    label: string
+    revenue: number
+}
+
+export interface Reminder {
+    id: string
+    invoiceNumber: string
+    clientName: string
+    amount: number
+    dueDate: string | null
+    type: 'overdue' | 'pending'
+}
+
+export interface DashboardData {
+    stats: DashboardStats
+    debt: DebtSummary
+    recentTransactions: any[]
+    recentExpenses: any[]
+    revenueByMonth: number[] // last 12 months ordered oldest → newest
+    expensesByMonth: number[] // last 12 months ordered oldest → newest
+    monthLabels: string[]    // matching labels for sparkline tooltips
+    expensesByCategory: Record<string, number>
+    topClients: TopClient[]
+    momGrowthPct: number     // month-over-month revenue growth %
+    hasAnyData: boolean
+    // KPI spec fields
+    pendingAmount: number    // sum of total_ttc for pending/draft invoices
+    invoicesThisMonth: number // count of invoices created this calendar month
+    clientCount: number      // total clients in workspace
+    revenueByYear: MonthBar[] // paid revenue per month for the current calendar year
+    reminders: Reminder[]
+}
+
+const SPARKLINE_MONTHS = 12
+
+function buildMonthBuckets(now: Date): { keys: string[]; labels: string[] } {
+    const keys: string[] = []
+    const labels: string[] = []
+    for (let i = SPARKLINE_MONTHS - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        keys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+        labels.push(d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }))
+    }
+    return { keys, labels }
+}
+
+export async function getDashboardStats(): Promise<DashboardData> {
     const cookieStore = await cookies()
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { get: (name) => cookieStore.get(name)?.value } }
+        { cookies: { get: (name) => cookieStore.get(name)?.value } },
     )
 
-    // 1. Fetch Invoices (Revenu)
-    const { data: invoices, error: invError } = await supabase.from('invoices').select('*')
-    if (invError) console.error("Server Invoice Error:", invError)
+    const [{ data: invoices }, { data: expenses }, { data: debts }, { data: clients }] = await Promise.all([
+        supabase.from('invoices').select('*, client:clients(name)').order('created_at', { ascending: false }),
+        supabase.from('expenses').select('*').order('date', { ascending: false }),
+        supabase.from('debts').select('*'),
+        supabase.from('clients').select('id'),
+    ])
 
-    // 2. Fetch Expenses (Dépenses)
-    const { data: expenses, error: expError } = await supabase.from('expenses').select('*').order('date', { ascending: false })
-    if (expError) console.error("Server Expense Error:", expError)
+    const safeInvoices = invoices || []
+    const safeExpenses = expenses || []
+    const safeDebts = debts || []
+    const safeClients = clients || []
 
-    // 3. Fetch Active Debts (Dettes)
-    const { data: debts, error: debtError } = await supabase.from('debts').select('*').eq('status', 'active')
-    if (debtError) console.error("Server Debt Error:", debtError)
+    // ── Aggregates ───────────────────────────────────────────
+    const totalRevenue = safeInvoices
+        .filter((i) => (i.status || '').toLowerCase() === 'paid')
+        .reduce((sum, i) => sum + (Number(i.total_ttc) || 0), 0)
 
-    // --- CALCULATIONS ---
-    const rawInvoices = invoices || []
-    const rawExpenses = expenses || []
-    const rawDebts = debts || []
+    const totalExpenses = safeExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
-    // Calculate Revenue (Paid Invoices Only)
-    const totalRevenue = rawInvoices
-        .filter((inv) => inv.status === 'paid')
-        .reduce((sum, inv) => sum + (Number(inv.total_ttc) || 0), 0)
+    const pendingCount = safeInvoices.filter((i) => {
+        const s = (i.status || '').toLowerCase()
+        return s === 'sent' || s === 'pending' || s === 'en_attente' || s === 'en attente'
+    }).length
 
-    // Calculate Total Expenses (Sum of all amounts)
-    const totalExpenses = rawExpenses
-        .reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0)
+    // ── Debt summary (weighted progress) ────────────────────
+    const activeDebts = safeDebts.filter(
+        (d) => Number(d.remaining_amount) > 0 && (d.status || '').toLowerCase() !== 'paid',
+    )
+    const totalRemaining = activeDebts.reduce((s, d) => s + (Number(d.remaining_amount) || 0), 0)
+    const totalAmountDebts = activeDebts.reduce((s, d) => s + (Number(d.total_amount) || 0), 0)
+    const progressPct =
+        totalAmountDebts > 0
+            ? Math.max(0, Math.min(100, ((totalAmountDebts - totalRemaining) / totalAmountDebts) * 100))
+            : 0
+    const nextDueDate =
+        activeDebts
+            .map((d) => d.due_date)
+            .filter((d): d is string => !!d)
+            .sort()[0] || null
 
-    // Calculate Active Debt
-    const totalDebt = rawDebts
-        .reduce((sum, debt) => sum + (Number(debt.remaining_amount) || 0), 0)
+    // ── Monthly revenue (paid invoices) ─────────────────────
+    const { keys, labels } = buildMonthBuckets(new Date())
+    const bucketMap = new Map<string, number>(keys.map((k) => [k, 0]))
+    for (const inv of safeInvoices) {
+        if ((inv.status || '').toLowerCase() !== 'paid') continue
+        const ref = new Date(inv.date || inv.created_at)
+        if (isNaN(ref.getTime())) continue
+        const key = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}`
+        if (bucketMap.has(key)) {
+            const amount = Number(inv.total_ttc) || 0
+            bucketMap.set(key, (bucketMap.get(key) || 0) + amount)
+        }
+    }
+    const revenueByMonth = keys.map((k) => bucketMap.get(k) || 0)
 
-    const pendingCount = rawInvoices.filter((inv) => inv.status === 'sent').length
-    const netTreasury = totalRevenue - totalExpenses
+    // ── Monthly expenses ─────────────────────────────────────
+    const expBucketMap = new Map<string, number>(keys.map((k) => [k, 0]))
+    for (const exp of safeExpenses) {
+        const ref = new Date(exp.date || exp.created_at)
+        if (isNaN(ref.getTime())) continue
+        const key = `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, '0')}`
+        if (expBucketMap.has(key)) {
+            expBucketMap.set(key, (expBucketMap.get(key) || 0) + (Number(exp.amount) || 0))
+        }
+    }
+    const expensesByMonth = keys.map((k) => expBucketMap.get(k) || 0)
+
+    // ── Expenses by category ──────────────────────────────────
+    const expensesByCategory: Record<string, number> = {}
+    for (const exp of safeExpenses) {
+        const cat = exp.category || 'Autre'
+        expensesByCategory[cat] = (expensesByCategory[cat] || 0) + (Number(exp.amount) || 0)
+    }
+
+    // ── Top clients by revenue ────────────────────────────────
+    const clientMap = new Map<string, { name: string; revenue: number; invoiceCount: number }>()
+    for (const inv of safeInvoices) {
+        if ((inv.status || '').toLowerCase() !== 'paid') continue
+        const name = inv.client?.name || 'Inconnu'
+        const id = inv.client_id || name
+        const existing = clientMap.get(id) || { name, revenue: 0, invoiceCount: 0 }
+        existing.revenue += Number(inv.total_ttc) || 0
+        existing.invoiceCount++
+        clientMap.set(id, existing)
+    }
+    const topClients = [...clientMap.values()]
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5)
+
+    // ── Month-over-month growth ───────────────────────────────
+    const lastMonthRev = revenueByMonth[revenueByMonth.length - 2] || 0
+    const thisMonthRev = revenueByMonth[revenueByMonth.length - 1] || 0
+    const momGrowthPct = lastMonthRev > 0
+        ? ((thisMonthRev - lastMonthRev) / lastMonthRev) * 100
+        : thisMonthRev > 0 ? 100 : 0
+
+    // ── KPI spec: pending amount, invoices this month, client count ───
+    const pendingAmount = safeInvoices
+        .filter((i) => {
+            const s = (i.status || '').toLowerCase()
+            return s === 'pending' || s === 'draft'
+        })
+        .reduce((sum, i) => sum + (Number(i.total_ttc) || 0), 0)
+
+    const nowDate = new Date()
+    const curYear = nowDate.getFullYear()
+    const curMonth = nowDate.getMonth()
+
+    const invoicesThisMonth = safeInvoices.filter((i) => {
+        const d = new Date(i.created_at)
+        return d.getFullYear() === curYear && d.getMonth() === curMonth
+    }).length
+
+    const clientCount = safeClients.length
+
+    // ── Current-year monthly revenue (for BarChart) ───────────
+    const MONTH_LABELS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jui', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
+    const revenueByYear: { label: string; revenue: number }[] = Array.from(
+        { length: curMonth + 1 },
+        (_, m) => ({ label: MONTH_LABELS_FR[m], revenue: 0 }),
+    )
+    for (const inv of safeInvoices) {
+        if ((inv.status || '').toLowerCase() !== 'paid') continue
+        const d = new Date(inv.date || inv.created_at)
+        if (isNaN(d.getTime()) || d.getFullYear() !== curYear) continue
+        const m = d.getMonth()
+        if (m <= curMonth) revenueByYear[m].revenue += Number(inv.total_ttc) || 0
+    }
+
+    // ── Reminders ────────────────────────────────────────────
+    const todayStr = nowDate.toISOString().slice(0, 10)
+    const reminders: Reminder[] = []
+    for (const inv of safeInvoices) {
+        const status = (inv.status || '').toLowerCase()
+        const clientName = inv.client?.name || 'Client inconnu'
+        const invoiceNumber = inv.invoice_number || inv.id.slice(0, 8).toUpperCase()
+        const amount = Number(inv.total_ttc) || 0
+        const dueDate: string | null = inv.due_date || null
+
+        if (status === 'overdue') {
+            reminders.push({ id: inv.id, invoiceNumber, clientName, amount, dueDate, type: 'overdue' })
+        } else if ((status === 'sent' || status === 'pending' || status === 'en_attente') && dueDate && dueDate < todayStr) {
+            reminders.push({ id: inv.id, invoiceNumber, clientName, amount, dueDate, type: 'overdue' })
+        } else if (status === 'draft') {
+            reminders.push({ id: inv.id, invoiceNumber, clientName, amount, dueDate, type: 'pending' })
+        }
+    }
 
     return {
         stats: {
             revenue: totalRevenue,
             expenses: totalExpenses,
-            treasury: netTreasury,
+            treasury: totalRevenue - totalExpenses,
             pending: pendingCount,
-            debt: totalDebt
+            debt: totalRemaining,
         },
-        recentExpenses: rawExpenses.slice(0, 5), // Send top 5 recent
-        recentTransactions: rawInvoices.slice(0, 5) // Send top 5 invoices
+        debt: {
+            activeCount: activeDebts.length,
+            totalRemaining,
+            totalAmount: totalAmountDebts,
+            progressPct,
+            nextDueDate,
+        },
+        recentTransactions: safeInvoices.slice(0, 5),
+        recentExpenses: safeExpenses.slice(0, 5),
+        revenueByMonth,
+        expensesByMonth,
+        monthLabels: labels,
+        expensesByCategory,
+        topClients,
+        momGrowthPct,
+        hasAnyData:
+            safeInvoices.length > 0 || safeExpenses.length > 0 || safeDebts.length > 0 || safeClients.length > 0,
+        pendingAmount,
+        invoicesThisMonth,
+        clientCount,
+        revenueByYear,
+        reminders,
     }
 }

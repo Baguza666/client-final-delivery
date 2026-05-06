@@ -3,98 +3,172 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
-// 1. CREATE NEW CLIENT
-export async function createNewClient(formData: FormData) {
+async function getSupabase() {
     const cookieStore = await cookies()
-
-    // Connect to Supabase
-    const supabase = createServerClient(
+    return createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
             cookies: {
-                getAll() { return cookieStore.getAll() },
+                getAll() {
+                    return cookieStore.getAll()
+                },
                 setAll(cookiesToSet) {
                     try {
                         cookiesToSet.forEach(({ name, value, options }) =>
-                            cookieStore.set(name, value, options)
+                            cookieStore.set(name, value, options),
                         )
-                    } catch { }
-                }
-            }
-        }
+                    } catch {
+                        // Server actions may run in read-only cookie context.
+                    }
+                },
+            },
+        },
     )
+}
 
-    // Get Current User (The Owner)
-    const { data: { user } } = await supabase.auth.getUser()
+export interface ClientActionResult {
+    success: boolean
+    message?: string
+    id?: string
+}
+
+// ─── CREATE ────────────────────────────────────────────────
+export async function createNewClient(formData: FormData): Promise<ClientActionResult> {
+    const supabase = await getSupabase()
+    const {
+        data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user) {
-        return { success: false, message: "Vous devez être connecté." }
+        return { success: false, message: 'Vous devez être connecté.' }
     }
 
-    // Prepare Data
+    let workspaceId: string
+    try {
+        workspaceId = await getOrCreateWorkspace(supabase, user.id)
+    } catch (e: any) {
+        return { success: false, message: e.message }
+    }
+
+    const name = (formData.get('name') as string)?.trim()
+    if (!name) {
+        return { success: false, message: 'Le nom est requis.' }
+    }
+
     const newClient = {
-        owner_id: user.id, // 👈 CRITICAL: Links client to YOU
-        name: formData.get('name') as string,
-        email: formData.get('email') as string,
-        phone: formData.get('phone') as string,
-        address: formData.get('address') as string,
-        city: formData.get('city') as string,
-        ice: formData.get('ice') as string,
-        // workspace_id is optional now, so we can omit it
+        workspace_id: workspaceId,
+        name,
+        email: ((formData.get('email') as string) || '').trim() || null,
+        phone: ((formData.get('phone') as string) || '').trim() || null,
+        address: ((formData.get('address') as string) || '').trim() || null,
+        city: ((formData.get('city') as string) || '').trim() || null,
+        ice: ((formData.get('ice') as string) || '').trim() || null,
+        type: (formData.get('type') as string) || 'client',
     }
 
-    // Insert into DB
-    const { error } = await supabase.from('clients').insert(newClient)
+    const { data, error } = await supabase.from('clients').insert(newClient).select().single()
 
     if (error) {
-        console.error("Supabase Create Error:", error)
+        console.error('Supabase Create Error:', error)
         return { success: false, message: error.message }
     }
 
-    // Refresh the page data
     revalidatePath('/clients')
-    return { success: true, message: "Client créé avec succès !" }
+    return { success: true, message: 'Client créé avec succès !', id: data?.id }
 }
 
-// 2. UPDATE CLIENT
-export async function updateClient(formData: FormData) {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { getAll() { return cookieStore.getAll() } } }
-    )
+// ─── UPDATE ────────────────────────────────────────────────
+export async function updateClient(formData: FormData): Promise<ClientActionResult> {
+    const supabase = await getSupabase()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Non authentifié.' }
+
+    let workspaceId: string
+    try { workspaceId = await getOrCreateWorkspace(supabase, user.id) }
+    catch (e: any) { return { success: false, message: e.message } }
 
     const id = formData.get('id') as string
+    if (!id) return { success: false, message: 'ID manquant.' }
 
-    const updates = {
-        name: formData.get('name'),
-        email: formData.get('email'),
-        phone: formData.get('phone'),
-        address: formData.get('address'),
-        city: formData.get('city'),
-        ice: formData.get('ice'),
+    const updates: Record<string, any> = {
+        name: ((formData.get('name') as string) || '').trim(),
+        email: ((formData.get('email') as string) || '').trim() || null,
+        phone: ((formData.get('phone') as string) || '').trim() || null,
+        address: ((formData.get('address') as string) || '').trim() || null,
+        city: ((formData.get('city') as string) || '').trim() || null,
+        ice: ((formData.get('ice') as string) || '').trim() || null,
+    }
+    const type = formData.get('type') as string
+    if (type) updates.type = type
+
+    if (!updates.name) {
+        return { success: false, message: 'Le nom est requis.' }
     }
 
-    const { error } = await supabase.from('clients').update(updates).eq('id', id)
-
-    if (error) return { success: false, message: error.message }
+    const { error } = await supabase
+        .from('clients')
+        .update(updates)
+        .eq('id', id)
+        .eq('workspace_id', workspaceId) // IDOR guard
+    if (error) {
+        console.error('Supabase Update Error:', error)
+        return { success: false, message: error.message }
+    }
 
     revalidatePath('/clients')
     return { success: true }
 }
 
-// 3. DELETE CLIENT
-export async function deleteClient(id: string) {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { getAll() { return cookieStore.getAll() } } }
-    )
+// ─── DELETE ────────────────────────────────────────────────
+export async function deleteClient(id: string): Promise<ClientActionResult> {
+    const supabase = await getSupabase()
 
-    await supabase.from('clients').delete().eq('id', id)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Non authentifié.' }
+
+    let workspaceId: string
+    try { workspaceId = await getOrCreateWorkspace(supabase, user.id) }
+    catch (e: any) { return { success: false, message: e.message } }
+
+    const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', id)
+        .eq('workspace_id', workspaceId) // IDOR guard
+    if (error) {
+        console.error('Supabase Delete Error:', error)
+        return { success: false, message: error.message }
+    }
     revalidatePath('/clients')
+    return { success: true }
+}
+
+// ─── BULK DELETE ───────────────────────────────────────────
+export async function deleteClientsBulk(ids: string[]): Promise<ClientActionResult> {
+    if (!ids.length) return { success: false, message: 'Aucun client sélectionné.' }
+
+    const supabase = await getSupabase()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: 'Non authentifié.' }
+
+    let workspaceId: string
+    try { workspaceId = await getOrCreateWorkspace(supabase, user.id) }
+    catch (e: any) { return { success: false, message: e.message } }
+
+    const { error } = await supabase
+        .from('clients')
+        .delete()
+        .in('id', ids)
+        .eq('workspace_id', workspaceId) // IDOR guard
+    if (error) {
+        console.error('Supabase Bulk Delete Error:', error)
+        return { success: false, message: error.message }
+    }
+    revalidatePath('/clients')
+    return { success: true, message: `${ids.length} client(s) supprimé(s).` }
 }

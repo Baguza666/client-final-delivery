@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import Sidebar from '@/components/Sidebar'
 import ExpensesClient from '@/components/expenses/ExpensesClient'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
 // ⚡ Force dynamic to ensure data is always fresh
 export const dynamic = 'force-dynamic'
@@ -14,26 +14,25 @@ export default async function ExpensesPage() {
         { cookies: { get: (name) => cookieStore.get(name)?.value } }
     )
 
-    // 🚀 PARALLEL FETCHING (The speed fix)
+    const { data: { user } } = await supabase.auth.getUser()
+    const workspaceId = user ? await getOrCreateWorkspace(supabase, user.id) : null
+
     const [expensesResult, debtsResult] = await Promise.all([
-        supabase.from('expenses').select('*').order('date', { ascending: false }),
-        supabase.from('debts').select('*').order('due_date', { ascending: true })
+        workspaceId
+            ? supabase.from('expenses').select('*').eq('workspace_id', workspaceId).order('date', { ascending: false })
+            : supabase.from('expenses').select('*').order('date', { ascending: false }),
+        workspaceId
+            ? supabase.from('debts').select('*').eq('workspace_id', workspaceId).order('due_date', { ascending: true })
+            : supabase.from('debts').select('*').order('due_date', { ascending: true }),
     ])
 
     return (
-        <div className="flex min-h-screen bg-[#050505] text-white font-['Inter']">
-            {/* Fixed Sidebar */}
-            <div className="fixed left-0 top-0 h-screen z-20">
-                <Sidebar />
-            </div>
-
-            {/* Main Content */}
-            <main className="flex-1 p-8 ml-72">
-                <ExpensesClient
-                    initialExpenses={expensesResult.data || []}
-                    initialDebts={debtsResult.data || []}
-                />
-            </main>
-        </div>
+        <main className="px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+            <ExpensesClient
+                initialExpenses={expensesResult.data || []}
+                initialDebts={debtsResult.data || []}
+                workspaceId={workspaceId}
+            />
+        </main>
     )
 }

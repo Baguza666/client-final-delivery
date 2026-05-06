@@ -1,86 +1,272 @@
-'use client';
-import { useState } from 'react';
-import { createProduct, deleteProduct } from '@/app/actions/data';
+'use client'
 
-export default function ProductManager({ products, workspaceId }: { products: any[], workspaceId: string }) {
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
+import { useState } from 'react'
+import { createProduct, updateProduct, deleteProduct } from '@/app/actions/products'
+import ConfirmationModal from '@/components/ui/ConfirmationModal'
+
+interface Product {
+    id: string
+    name: string
+    description?: string | null
+    price: number
+    unit: string
+    base_currency?: string | null
+}
+
+const UNITS = ['Unité', 'Heure', 'Jour', 'm²', 'Forfait']
+const CURRENCIES = ['MAD', 'EUR', 'USD', 'GBP', 'AED']
+
+const fieldClass = 'w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-primary/40 focus:border-primary/60 outline-none transition-all placeholder:text-zinc-600'
+const labelClass = 'block text-[10px] font-bold text-zinc-500 uppercase mb-1.5 tracking-wider'
+
+type ModalMode = 'create' | 'edit'
+
+export default function ProductManager({ products, workspaceId }: { products: Product[]; workspaceId: string }) {
+    const [modalMode, setModalMode] = useState<ModalMode>('create')
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+    const [loading, setLoading] = useState(false)
+    const [formError, setFormError] = useState<string | null>(null)
+    const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
+    const [deleteError, setDeleteError] = useState<string | null>(null)
+    const [formCurrency, setFormCurrency] = useState('MAD')
+
+    const openCreate = () => {
+        setModalMode('create')
+        setEditingProduct(null)
+        setFormError(null)
+        setFormCurrency('MAD')
+        setIsModalOpen(true)
+    }
+
+    const openEdit = (product: Product) => {
+        setModalMode('edit')
+        setEditingProduct(product)
+        setFormError(null)
+        setFormCurrency(product.base_currency || 'MAD')
+        setIsModalOpen(true)
+    }
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        setLoading(true);
-        await createProduct(new FormData(e.currentTarget));
-        setLoading(false);
-        setIsModalOpen(false);
-    };
+        e.preventDefault()
+        setLoading(true)
+        setFormError(null)
+        const fd = new FormData(e.currentTarget)
+        const result = modalMode === 'edit' && editingProduct
+            ? await updateProduct(editingProduct.id, fd)
+            : await createProduct(fd)
+        setLoading(false)
+        if (!result.success) {
+            setFormError(result.message || 'Une erreur est survenue.')
+            return
+        }
+        setIsModalOpen(false)
+        setEditingProduct(null)
+    }
 
-    const handleDelete = async (id: string) => {
-        if (confirm('Supprimer ce produit ?')) await deleteProduct(id);
-    };
+    const handleConfirmDelete = async () => {
+        if (!deleteTarget) return
+        setDeleteError(null)
+        const result = await deleteProduct(deleteTarget.id)
+        if (!result.success) {
+            setDeleteError(result.message || 'Erreur lors de la suppression.')
+            return
+        }
+        setDeleteTarget(null)
+    }
 
     return (
         <>
             <div className="flex justify-end mb-6">
-                <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 h-10 px-6 rounded-full bg-white text-black text-sm font-bold shadow-lg hover:bg-gray-200 transition-colors">
-                    <span className="material-symbols-outlined text-[20px]">add</span>
-                    AJOUTER SERVICE / PRODUIT
+                <button
+                    onClick={openCreate}
+                    className="flex items-center gap-2 bg-brand-gradient text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-glow-sm hover:shadow-glow text-sm"
+                >
+                    <span className="material-symbols-outlined text-[18px]">add</span>
+                    Ajouter service / produit
                 </button>
             </div>
 
-            <div className="glass-card rounded-3xl overflow-hidden">
-                <table className="w-full text-left border-collapse">
+            <div className="bg-white/[0.025] border border-white/[0.06] rounded-2xl overflow-hidden">
+                <table className="w-full text-left text-sm">
                     <thead>
-                        <tr className="text-xs text-text-secondary border-b border-border-dark/50 bg-white/[0.02]">
-                            <th className="py-4 px-6">Nom</th>
-                            <th className="py-4 px-6">Description</th>
-                            <th className="py-4 px-6">Unité</th>
-                            <th className="py-4 px-6 text-right">Prix Unitaire</th>
-                            <th className="py-4 px-6 text-right">Actions</th>
+                        <tr className="border-b border-zinc-800/80 bg-black/30 text-zinc-500 uppercase tracking-wider text-[10px]">
+                            <th className="py-4 px-6 font-bold">Nom</th>
+                            <th className="py-4 px-6 font-bold hidden md:table-cell">Description</th>
+                            <th className="py-4 px-6 font-bold">Unité</th>
+                            <th className="py-4 px-6 font-bold text-right">Prix unitaire</th>
+                            <th className="py-4 px-6 w-20" />
                         </tr>
                     </thead>
-                    <tbody className="text-sm divide-y divide-border-dark/30">
+                    <tbody className="divide-y divide-zinc-800/50">
                         {products.map(product => (
-                            <tr key={product.id} className="group hover:bg-white/[0.03]">
+                            <tr key={product.id} className="group hover:bg-white/[0.02] transition-colors">
                                 <td className="py-4 px-6 font-bold text-white">{product.name}</td>
-                                <td className="py-4 px-6 text-text-secondary">{product.description || '-'}</td>
-                                <td className="py-4 px-6 text-xs uppercase tracking-wider text-text-secondary">{product.unit}</td>
-                                <td className="py-4 px-6 text-right font-mono text-primary">{product.price} MAD</td>
-                                <td className="py-4 px-6 text-right">
-                                    <button onClick={() => handleDelete(product.id)} className="text-text-secondary hover:text-red-500">
-                                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                                    </button>
+                                <td className="py-4 px-6 text-zinc-500 hidden md:table-cell">{product.description || '—'}</td>
+                                <td className="py-4 px-6">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 bg-white/[0.04] border border-white/[0.06] px-2 py-1 rounded">
+                                        {product.unit}
+                                    </span>
+                                </td>
+                                <td className="py-4 px-6 text-right font-mono font-bold text-white">
+                                    {Number(product.price).toFixed(2)}{' '}
+                                    <span className="text-zinc-500 font-normal text-xs">{product.base_currency || 'MAD'}</span>
+                                </td>
+                                <td className="py-4 px-6">
+                                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => openEdit(product)}
+                                            className="p-1.5 rounded-lg text-zinc-600 hover:text-primary hover:bg-primary/10 transition-colors"
+                                            title="Modifier"
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">edit</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setDeleteTarget(product)}
+                                            className="p-1.5 rounded-lg text-zinc-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                            title="Supprimer"
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-                {products.length === 0 && <div className="p-8 text-center text-text-secondary text-sm">Aucun produit ou service défini.</div>}
+                {products.length === 0 && (
+                    <div className="py-16 text-center">
+                        <span className="material-symbols-outlined text-zinc-700 text-[48px] mb-3 block">inventory_2</span>
+                        <p className="text-zinc-500 text-sm font-medium">Aucun produit ou service défini.</p>
+                        <p className="text-zinc-700 text-xs mt-1">Ajoutez votre premier article pour l'utiliser dans vos documents.</p>
+                    </div>
+                )}
             </div>
 
+            {/* Create / Edit modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-[#1a1a1a] border border-white/10 w-full max-w-md rounded-2xl p-6 shadow-2xl relative">
-                        <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-text-secondary hover:text-white"><span className="material-symbols-outlined">close</span></button>
-                        <h3 className="text-white text-xl font-bold mb-6">Nouveau Service / Produit</h3>
-                        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+                        <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                        <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary text-[20px]">
+                                    {modalMode === 'edit' ? 'edit' : 'add_circle'}
+                                </span>
+                                {modalMode === 'edit' ? 'Modifier le produit' : 'Nouveau service / produit'}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => setIsModalOpen(false)}
+                                className="p-1 text-zinc-500 hover:text-white transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">close</span>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <input type="hidden" name="workspace_id" value={workspaceId} />
-                            <input name="name" required placeholder="Nom du service (ex: Peinture m²)" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none" />
+
+                            <div>
+                                <label className={labelClass}>Nom <span className="text-rose-400">*</span></label>
+                                <input
+                                    name="name"
+                                    required
+                                    autoFocus
+                                    defaultValue={editingProduct?.name ?? ''}
+                                    placeholder="Ex: Peinture m², Consultation…"
+                                    className={fieldClass}
+                                />
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
-                                <input name="price" type="number" step="0.01" required placeholder="Prix (0.00)" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none" />
-                                <select name="unit" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none">
-                                    <option value="Unité">Unité</option>
-                                    <option value="Heure">Heure</option>
-                                    <option value="Jour">Jour</option>
-                                    <option value="m²">m²</option>
-                                    <option value="Forfait">Forfait</option>
+                                <div>
+                                    <label className={labelClass}>
+                                        Prix ({formCurrency}) <span className="text-rose-400">*</span>
+                                    </label>
+                                    <input
+                                        name="price"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        required
+                                        defaultValue={editingProduct?.price ?? ''}
+                                        placeholder="0.00"
+                                        className={fieldClass + ' font-mono'}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={labelClass}>Devise de base</label>
+                                    <select
+                                        name="base_currency"
+                                        value={formCurrency}
+                                        onChange={e => setFormCurrency(e.target.value)}
+                                        className={fieldClass + ' appearance-none cursor-pointer'}
+                                    >
+                                        {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className={labelClass}>Unité</label>
+                                <select
+                                    name="unit"
+                                    defaultValue={editingProduct?.unit ?? 'Unité'}
+                                    className={fieldClass + ' appearance-none cursor-pointer'}
+                                >
+                                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                                 </select>
                             </div>
-                            <textarea name="description" rows={3} placeholder="Description (optionnel)" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-primary outline-none" />
-                            <button disabled={loading} className="mt-2 w-full h-12 rounded-xl bg-white text-black font-bold hover:bg-gray-200 transition-colors">{loading ? '...' : 'Ajouter'}</button>
+
+                            <div>
+                                <label className={labelClass}>Description (optionnel)</label>
+                                <textarea
+                                    name="description"
+                                    rows={3}
+                                    defaultValue={editingProduct?.description ?? ''}
+                                    placeholder="Description courte…"
+                                    className={fieldClass + ' resize-none'}
+                                />
+                            </div>
+
+                            {formError && (
+                                <div className="flex items-center gap-2 text-sm text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3">
+                                    <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+                                    {formError}
+                                </div>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+                            >
+                                {loading ? (
+                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <>
+                                        <span className="material-symbols-outlined text-[18px]">save</span>
+                                        {modalMode === 'edit' ? 'Mettre à jour' : 'Ajouter'}
+                                    </>
+                                )}
+                            </button>
                         </form>
                     </div>
                 </div>
             )}
+
+            {/* Delete confirmation */}
+            <ConfirmationModal
+                isOpen={!!deleteTarget}
+                onCancel={() => { setDeleteTarget(null); setDeleteError(null) }}
+                onConfirm={handleConfirmDelete}
+                title="Supprimer ce produit ?"
+                message={deleteError
+                    ? `Impossible de supprimer : ${deleteError}`
+                    : `"${deleteTarget?.name}" sera définitivement supprimé du catalogue.`}
+                confirmLabel="Supprimer"
+                danger
+            />
         </>
-    );
+    )
 }

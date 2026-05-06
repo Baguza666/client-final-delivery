@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import InvoiceStatusSelect from './InvoiceStatusSelect'
+import { formatMAD } from '@/utils/format'
 
 export default function InvoiceCard({ invoice }: { invoice: any }) {
     const [sending, setSending] = useState(false)
     const isOverdue = new Date() > new Date(invoice.due_date) && invoice.status !== 'paid'
-    const amount = new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD' }).format(invoice.total_ttc || 0)
+    const amount = formatMAD(invoice.total_ttc)
 
     const handleDownload = () => {
         const win = window.open(`/invoices/${invoice.id}`, '_blank')
@@ -17,7 +18,7 @@ export default function InvoiceCard({ invoice }: { invoice: any }) {
     const handleSend = async () => {
         setSending(true)
         await new Promise(r => setTimeout(r, 1000))
-        alert(`Facture #${invoice.number} envoyée !`)
+        alert(`Facture #${invoice.invoice_number} envoyée !`)
         setSending(false)
     }
 
@@ -51,7 +52,7 @@ export default function InvoiceCard({ invoice }: { invoice: any }) {
                             {invoice.client?.name || 'Client Inconnu'}
                         </h3>
                         <p className="text-zinc-500 text-xs font-mono mt-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
-                            {invoice.number}
+                            {invoice.invoice_number}
                         </p>
                     </div>
                 </div>
@@ -75,7 +76,7 @@ export default function InvoiceCard({ invoice }: { invoice: any }) {
                         <Link href={`/invoices/${invoice.id}/edit`} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-500 hover:text-blue-400 transition-colors">
                             <span className="material-symbols-outlined text-[18px]">edit</span>
                         </Link>
-                        <button onClick={handleSend} disabled={sending} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-500 hover:text-[#EAB308] transition-colors">
+                        <button onClick={handleSend} disabled={sending} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-500 hover:text-primary transition-colors">
                             <span className={`material-symbols-outlined text-[18px] ${sending ? 'animate-spin' : ''}`}>
                                 {sending ? 'refresh' : 'send'}
                             </span>

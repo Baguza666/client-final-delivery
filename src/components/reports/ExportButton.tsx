@@ -21,7 +21,7 @@ export default function ExportButton({ invoices, expenses }: ExportButtonProps) 
                 Type: 'Revenu',
                 Category: 'Vente',
                 Description: `Facture #${inv.invoice_number} - ${inv.client?.name || 'Client'}`,
-                Montant: Number(inv.total_amount),
+                Montant: Number(inv.total_ttc),
                 Statut: inv.status === 'Paid' ? 'Encaissé' : 'En attente'
             })),
             ...expenses.map(exp => ({
@@ -61,9 +61,9 @@ export default function ExportButton({ invoices, expenses }: ExportButtonProps) 
             className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 transition-all duration-300 active:scale-95"
         >
             {loading ? (
-                <span className="material-symbols-outlined text-[20px] animate-spin text-text-secondary">progress_activity</span>
+                <span className="material-symbols-outlined text-[20px] animate-spin text-zinc-500">progress_activity</span>
             ) : (
-                <span className="material-symbols-outlined text-[20px] text-text-secondary group-hover:text-primary transition-colors">download</span>
+                <span className="material-symbols-outlined text-[20px] text-zinc-500 group-hover:text-primary transition-colors">download</span>
             )}
             <span className="text-xs font-bold text-white tracking-wide">
                 {loading ? 'EXPORT...' : 'EXPORTER CSV'}

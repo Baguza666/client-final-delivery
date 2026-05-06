@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
-// 👇 Import the server actions we just fixed in Step 1
 import { updateStatus, deleteDocument } from '@/app/actions/documentActions'
+import { DocumentType, getStatusOptions, getStatusEntry, TONE_DOT } from '@/utils/status'
 
 interface DocumentActionsProps {
     table: string;
@@ -11,30 +11,21 @@ interface DocumentActionsProps {
     redirectAfterDelete: string;
 }
 
-const STATUS_OPTIONS: Record<string, string[]> = {
-    quotes: ['draft', 'sent', 'accepted', 'rejected'],
-    invoices: ['draft', 'sent', 'paid', 'overdue'],
-    delivery_notes: ['pending', 'livré', 'returned'],
-    purchase_orders: ['pending', 'validé', 'reçu'],
-}
-
-const STATUS_COLORS: Record<string, string> = {
-    draft: 'bg-zinc-500',
-    pending: 'bg-orange-500',
-    sent: 'bg-blue-500',
-    accepted: 'bg-green-600',
-    validé: 'bg-emerald-600',
-    paid: 'bg-emerald-600',
-    livré: 'bg-purple-600',
-    reçu: 'bg-purple-600',
-    rejected: 'bg-red-600',
-    overdue: 'bg-red-600',
+const TABLE_TO_TYPE: Record<string, DocumentType> = {
+    invoices: 'invoice',
+    quotes: 'quote',
+    purchase_orders: 'purchase_order',
+    delivery_notes: 'delivery_note',
 }
 
 export default function DocumentActions({ table, id, currentStatus, redirectAfterDelete }: DocumentActionsProps) {
     const [status, setStatus] = useState(currentStatus)
     const [isPending, startTransition] = useTransition()
     const [isDeleting, setIsDeleting] = useState(false)
+
+    const docType = TABLE_TO_TYPE[table] ?? 'invoice'
+    const options = getStatusOptions(docType)
+    const activeEntry = getStatusEntry(docType, status)
 
     const handleStatusChange = (newStatus: string) => {
         setStatus(newStatus)
@@ -56,22 +47,23 @@ export default function DocumentActions({ table, id, currentStatus, redirectAfte
                     value={status}
                     onChange={(e) => handleStatusChange(e.target.value)}
                     disabled={isPending}
-                    className={`appearance-none pl-8 pr-8 py-1.5 rounded-md text-xs font-bold uppercase text-white outline-none cursor-pointer hover:opacity-90 transition-all ${STATUS_COLORS[status] || 'bg-zinc-600'}`}
+                    aria-label="Changer le statut"
+                    className="appearance-none pl-8 pr-8 py-1.5 rounded-md text-xs font-bold uppercase text-white outline-none cursor-pointer hover:opacity-90 transition-all bg-zinc-800 border border-zinc-700"
                 >
-                    {STATUS_OPTIONS[table]?.map(s => (
-                        <option key={s} value={s} className="bg-zinc-900 text-gray-300 capitalize">
-                            {s}
+                    {options.map((opt) => (
+                        <option key={opt.value} value={opt.value} className="bg-zinc-900 text-gray-300">
+                            {opt.label}
                         </option>
                     ))}
                 </select>
-                {/* Status Indicator Dot */}
-                <div className="absolute left-2.5 top-1.5 pointer-events-none">
+                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
                     {isPending ? (
                         <div className="w-2 h-2 rounded-full border-2 border-white/50 border-t-white animate-spin"></div>
                     ) : (
-                        <div className="w-2 h-2 rounded-full bg-white/50"></div>
+                        <div className={`w-2 h-2 rounded-full ${TONE_DOT[activeEntry.tone]}`}></div>
                     )}
                 </div>
+                <span className="material-symbols-outlined text-base text-zinc-400 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
             </div>
 
             <div className="w-px h-6 bg-zinc-700 mx-1"></div>

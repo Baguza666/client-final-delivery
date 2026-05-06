@@ -1,183 +1,129 @@
 'use client'
 
 import React, { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import PrintButton from '@/components/invoices/PrintButton'
-import watermarkImg from '@/assets/imsal-watermark.png'
 import DocumentActions from '@/components/ui/DocumentActions'
+import DocumentActionBar from '@/components/ui/DocumentActionBar'
+import StampSigToggles from '@/components/ui/StampSigToggles'
+import { type Template, TEMPLATE_META } from '@/lib/document-templates'
+import DocumentPage, { type DocumentTotals } from '@/components/documents/DocumentPage'
 
-function numberToFrenchWords(n: number): string {
-    if (!n || n === 0) return 'zéro';
-    const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
-    const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
-    const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
-    function convertHundreds(num: number): string { let str = ''; if (num >= 100) { const h = Math.floor(num / 100); str += (h === 1 ? 'cent ' : units[h] + ' cent '); num %= 100; } if (num >= 20) { const t = Math.floor(num / 10); const r = num % 10; str += tens[t] + (r ? '-' + (r === 1 && t === 7 ? 'et-' : '') + units[r] : ''); } else if (num >= 10) { str += teens[num - 10]; } else if (num > 0) { str += units[num]; } return str.trim(); }
-    const chunks = []; let temp = Math.floor(n); while (temp > 0) { chunks.push(temp % 1000); temp = Math.floor(temp / 1000); }
-    let result = ''; const scales = ['', 'mille', 'million', 'milliard'];
-    for (let i = chunks.length - 1; i >= 0; i--) { const chunk = chunks[i]; if (chunk) result += convertHundreds(chunk) + ' ' + (scales[i] ? scales[i] + ' ' : ''); }
-    return result.trim().charAt(0).toUpperCase() + result.trim().slice(1);
-}
-const formatNumber = (amount: number) => { if (amount === undefined || amount === null) return '0.00'; return new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); }
-const formatDate = (dateStr: string) => { try { const d = dateStr ? new Date(dateStr) : new Date(); if (isNaN(d.getTime())) return '-'; return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return '-'; } }
-
-// ✅ CHUNKING ENGINE
-const ITEMS_PER_PAGE = 5;
-function chunkItems(items: any[]) {
-    const chunks = [];
-    for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
-        chunks.push(items.slice(i, i + ITEMS_PER_PAGE));
+function toFrenchWords(n: number): string {
+    if (!n || n === 0) return 'Zéro'
+    const units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf']
+    const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf']
+    const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix']
+    function cvt(n: number): string {
+        let s = ''
+        if (n >= 100) { const h = Math.floor(n / 100); s += (h === 1 ? 'cent ' : units[h] + ' cent '); n = n % 100 }
+        if (n >= 20) { const t = Math.floor(n / 10); const r = n % 10; if (t === 7 || t === 9) { s += tens[t - 1] + '-'; s += teens[r] } else { s += tens[t]; if (r === 1 && t < 8) s += ' et '; else if (r > 0) s += '-'; if (r > 0) s += units[r] } }
+        else if (n >= 10) s += teens[n - 10]; else if (n > 0) s += units[n]
+        return s.trim()
     }
-    return chunks.length > 0 ? chunks : [[]];
+    const chunks: number[] = []; let t = Math.floor(n); while (t > 0) { chunks.push(t % 1000); t = Math.floor(t / 1000) }
+    const scales = ['', 'mille', 'million', 'milliard']; let res = ''
+    for (let i = chunks.length - 1; i >= 0; i--) {
+        const c = chunks[i]; if (!c) continue
+        let ct = cvt(c); if (i === 1 && c === 1) ct = ''
+        res += ct + ' '; if (scales[i]) { res += scales[i]; if (c > 1 && i > 1) res += 's'; res += ' ' }
+    }
+    const trimmed = res.trim()
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
 }
 
-interface DocumentViewerProps { document: any; client: any; ws: any; }
+const ITEMS_PER_PAGE = 5
+function chunkItems(items: any[]) {
+    const chunks = []
+    for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) chunks.push(items.slice(i, i + ITEMS_PER_PAGE))
+    return chunks.length > 0 ? chunks : [[]]
+}
+
+interface DocumentViewerProps { document: any; client: any; ws: any }
 
 export default function PurchaseOrderViewer({ document, client, ws }: DocumentViewerProps) {
-    const [showStamp, setShowStamp] = useState(true);
-    const [showSignature, setShowSignature] = useState(true);
-    const totalInWords = numberToFrenchWords(document.total_ttc || 0);
+    const [showStamp, setShowStamp] = useState(true)
+    const [showSignature, setShowSignature] = useState(true)
+    const [template, setTemplate] = useState<Template>((ws?.document_template as Template) || 'classic')
 
-    const items = document.purchase_order_items || [];
-    const paginatedItems = chunkItems(items);
+    const brandColor = ws?.brand_color || '#2563EB'
+    const items = document.purchase_order_items || []
+
+    const totalHT = Number(document.total_ht) || 0
+    const totalTVA = Number(document.total_tva) || 0
+    const totalTTC = Number(document.total_ttc) || 0
+
+    const totals: DocumentTotals = {
+        totalHT,
+        discountPercent: 0,
+        discountAmount: 0,
+        netHT: totalHT,
+        tvaByRate: {},
+        totalTVA,
+        totalTTC,
+        totalInWords: toFrenchWords(totalTTC),
+        currency: 'MAD',
+        exchangeRate: 1,
+    }
+
+    const paginatedItems = chunkItems(items)
 
     return (
-        <main className="ml-72 p-8 print:ml-0 print:p-0 flex flex-col items-center relative min-h-screen print:bg-white">
-
-            <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 no-print">
-                <div className="flex items-center gap-4">
-                    <Link href="/purchase-orders" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium">
-                        <span className="material-symbols-outlined text-lg">arrow_back</span> Retour
-                    </Link>
-                    <Link href={`/purchase-orders/${document.id}/edit`} className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-md font-bold text-xs transition border border-white/10">
-                        <span className="material-symbols-outlined text-[16px]">edit</span> Modifier
-                    </Link>
-                    <DocumentActions table="purchase_orders" id={document.id} currentStatus={document.status} redirectAfterDelete="/purchase-orders" />
-                </div>
-                <div className="flex items-center gap-6 bg-zinc-900 px-4 py-2 rounded-lg border border-zinc-800">
-                    <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:text-white select-none"><input type="checkbox" checked={showStamp} onChange={(e) => setShowStamp(e.target.checked)} className="accent-[#EAB308] w-4 h-4 cursor-pointer" /> Cachet</label>
-                    <div className="w-px h-4 bg-zinc-700"></div>
-                    <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:text-white select-none"><input type="checkbox" checked={showSignature} onChange={(e) => setShowSignature(e.target.checked)} className="accent-[#EAB308] w-4 h-4 cursor-pointer" /> Signature</label>
-                </div>
-                <PrintButton invoiceNumber={document.number} clientName={client?.name} />
-            </div>
-
-            {/* ✅ PAGINATED PAGES */}
-            <div className="flex flex-col gap-8 print:gap-0 print:bg-white">
-                {paginatedItems.map((pageItems, pageIndex) => {
-                    const isLastPage = pageIndex === paginatedItems.length - 1;
-
-                    return (
-                        <div key={pageIndex} className="print-container bg-white text-zinc-900 shadow-2xl w-[210mm] min-h-[297mm] relative flex flex-col font-['Inter'] print:break-after-page print:shadow-none">
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden"><div className="relative w-[75%] aspect-square opacity-5"><Image src={watermarkImg} alt="Watermark" fill className="object-contain" placeholder="blur" /></div></div>
-                            <div className="h-2 w-full bg-[#EAB308] relative z-10"></div>
-
-                            <div className="p-[10mm] pb-8 flex-1 flex flex-col relative z-10">
-                                {/* Header */}
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="w-1/2"><img src="/logo.png" alt="IMSAL Services" width={150} className="object-contain" /></div>
-                                    <div className="w-1/2 text-right">
-                                        <h1 className="text-4xl font-[800] tracking-tighter text-zinc-900 uppercase">Bon de<br />Commande</h1>
-                                        <p className="text-zinc-600 font-bold mt-1 text-base tracking-widest">N° {document.number}</p>
-                                        {paginatedItems.length > 1 && <p className="text-zinc-400 text-xs mt-1 font-bold">Page {pageIndex + 1} / {paginatedItems.length}</p>}
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-between items-start mb-6 gap-12">
-                                    <div className="w-1/2 text-sm leading-relaxed">
-                                        <h3 className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2 border-b border-zinc-200 pb-1 w-20">Acheteur</h3>
-                                        <p className="font-bold text-zinc-900 text-base">IMSAL SERVICES</p>
-                                        <p className="text-zinc-600">7 Lotis Najmat El Janoub</p>
-                                        <p className="text-zinc-600">El Jadida, Maroc</p>
-                                        <div className="mt-2 pt-2 border-t border-zinc-100 text-xs text-zinc-600 space-y-1">
-                                            <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[12px]">call</span> +212(0)6 61 43 52 83</p>
-                                            <p className="flex items-center gap-2"><span className="material-symbols-outlined text-[12px]">mail</span> i.assal@imsalservices.com</p>
-                                        </div>
-                                    </div>
-                                    <div className="w-1/2 text-left flex flex-col items-start">
-                                        <h3 className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-2 border-b border-zinc-200 pb-1 w-20 text-left">Fournisseur</h3>
-                                        <p className="font-bold text-zinc-900 text-xl">{client?.name}</p>
-                                        <p className="text-zinc-600">{client?.address}</p>
-                                        <p className="text-zinc-600">{client?.city} {client?.country}</p>
-                                        <div className="mt-4 flex gap-8 text-left">
-                                            <div><p className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Date de commande</p><p className="font-semibold text-zinc-900">{formatDate(document.date)}</p></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="mb-2 flex-grow">
-                                    <table className="w-full">
-                                        <thead>
-                                            <tr className="border-b-2 border-zinc-800">
-                                                <th className="text-left text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[40%] tracking-widest">Description</th>
-                                                <th className="text-center text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[10%] tracking-widest">Unité</th>
-                                                <th className="text-center text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[10%] tracking-widest">Qté</th>
-                                                <th className="text-right text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[20%] tracking-widest">Prix Unit.</th>
-                                                <th className="text-right text-[10px] uppercase font-bold text-zinc-600 pb-2 w-[20%] tracking-widest">Total HT</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="text-[12px]">
-                                            {pageItems.map((item: any, idx: number) => (
-                                                <tr key={item.id || idx} className={`border-b ${idx === pageItems.length - 1 ? 'border-zinc-800' : 'border-zinc-200'} break-inside-avoid`}>
-                                                    <td className="py-3 pr-2 font-semibold text-zinc-900 whitespace-pre-wrap">{item.description}</td>
-                                                    <td className="py-3 text-center text-zinc-500 font-mono text-[11px] uppercase align-top">{item.unit || '-'}</td>
-                                                    <td className="py-3 text-center text-zinc-600 font-mono align-top">{item.quantity}</td>
-                                                    <td className="py-3 text-right text-zinc-600 font-mono align-top">{formatNumber(item.unit_price)}</td>
-                                                    <td className="py-3 text-right font-bold text-zinc-900 font-mono align-top">{formatNumber(item.total)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                    {!isLastPage && <div className="mt-6 text-center text-xs font-bold text-zinc-400 italic">— Suite à la page suivante —</div>}
-                                </div>
-
-                                {/* Totals & Stamp - ONLY ON LAST PAGE */}
-                                {isLastPage && (
-                                    <>
-                                        <div className="break-inside-avoid font-['Inter'] mt-4 mb-6 grid grid-cols-2 gap-12 items-end">
-                                            <div className="flex flex-col gap-4">
-                                                <div className="text-xs text-zinc-500 leading-relaxed text-left">
-                                                    <p className="mb-2">Arrêté le présent bon de commande à la somme de :<br /><span className="font-bold text-zinc-900 uppercase leading-normal">{totalInWords} Dirhams TTC</span></p>
-                                                    <div className="mt-2 pt-2 border-t border-zinc-200"><p className="font-bold text-zinc-800">Conditions:</p><p>Paiement: Net 30 jours (Virement Bancaire).</p></div>
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col gap-3">
-                                                <div className="space-y-1 text-right">
-                                                    <div className="flex justify-between text-xs text-zinc-600"><span>Total HT</span><span className="font-mono text-zinc-900 whitespace-nowrap">{formatNumber(document.total_ht)} DH</span></div>
-                                                    <div className="flex justify-between text-xs text-zinc-600 pb-2 border-b border-zinc-200"><span>TVA (20%)</span><span className="font-mono text-zinc-900 whitespace-nowrap">{formatNumber(document.total_tva)} DH</span></div>
-                                                </div>
-                                                <div className="flex items-center justify-end gap-6"><span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 whitespace-nowrap">Total TTC</span><div className="text-xl font-[800] text-zinc-900 bg-[#EAB308]/10 px-4 py-2 rounded-lg border border-[#EAB308]/20 text-right whitespace-nowrap">{formatNumber(document.total_ttc)} DH</div></div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex justify-end pr-8 pb-4 h-28 relative select-none">
-                                            <div className="relative w-72 h-28">
-                                                {showStamp && (<div className="absolute bottom-4 right-10 z-20 pointer-events-none"><div className="w-64 h-28 border-4 border-double border-blue-900 opacity-90 mix-blend-multiply flex flex-col items-center justify-center p-2 text-center rotate-[-2deg] bg-blue-50/10"><div className="w-full text-[12px] font-[900] text-blue-900 uppercase tracking-widest leading-none mb-1">{ws?.name || 'IMSAL SARL'}</div><div className="text-[8px] font-semibold text-blue-900 uppercase leading-tight px-4">{ws?.address}, {ws?.city}</div><div className="text-[7px] font-medium text-blue-900 mt-1 leading-tight px-2">ICE: {ws?.ice || '-'} • RC: {ws?.rc || '-'} • IF: {ws?.tax_id || '-'}<br />CNSS: 5249290 • TP: 43003134</div><div className="text-[8px] font-bold text-blue-900 uppercase mt-1 border-t border-blue-900 w-full pt-0.5">COMMANDE VALIDÉE</div></div></div>)}
-                                                {showSignature && (<div className="absolute bottom-8 right-12 z-30 pointer-events-none transform -rotate-12"><div className="text-6xl text-blue-900 opacity-90 drop-shadow-sm" style={{ fontFamily: "'Ballet', cursive", textShadow: '2px 2px 2px rgba(0,0,0,0.1)' }}>Assal</div></div>)}
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-
-                                {/* Footer - ON EVERY PAGE */}
-                                <div className="mt-auto border-t border-zinc-200 pt-4 text-[10px] text-zinc-500 uppercase tracking-widest leading-relaxed">
-                                    <div className="flex justify-between items-end">
-                                        <div className="w-2/3">
-                                            <p className="font-bold text-zinc-900 mb-1 text-xs">IMSAL SERVICES | 7 Lotis Najmat El Janoub, El Jadida</p>
-                                            <p className="text-zinc-500 normal-case tracking-normal mb-1">Tél: +212(0)6 61 43 52 83 • Email: i.assal@imsalservices.com • Web: imsalservices.ma</p>
-                                            <p className="text-zinc-400 font-mono">ICE: 002972127000089 • RC: 19215 • IF: 000081196000005 • CNSS: 5249290 • TP: 43003134</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="font-bold text-zinc-900 mb-1">Coordonnées Bancaires</p>
-                                            <p>Banque: BANK OF AFRICA</p>
-                                            <p>RIB: <span className="font-mono font-bold text-zinc-800">011170000008210000137110</span></p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+        <main className="px-4 sm:px-6 lg:px-8 py-6 md:py-8 flex flex-col items-center relative min-h-screen print:p-0 print:m-0 print:w-full print:block print:bg-white print:min-h-0">
+            <DocumentActionBar
+                left={
+                    <>
+                        <Link href="/purchase-orders" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium">
+                            <span className="material-symbols-outlined text-lg">arrow_back</span>
+                            Retour
+                        </Link>
+                        <Link href={`/purchase-orders/${document.id}/edit`} className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg font-bold text-xs transition border border-white/10">
+                            <span className="material-symbols-outlined text-[16px]">edit</span>
+                            Modifier
+                        </Link>
+                        <DocumentActions table="purchase_orders" id={document.id} currentStatus={document.status} redirectAfterDelete="/purchase-orders" />
+                    </>
+                }
+                center={
+                    <>
+                        <StampSigToggles showStamp={showStamp} showSignature={showSignature} onStampChange={setShowStamp} onSigChange={setShowSignature} />
+                        <div className="w-px h-4 bg-zinc-700" />
+                        <div className="flex items-center gap-0.5">
+                            {(Object.keys(TEMPLATE_META) as Template[]).map((t) => (
+                                <button key={t} type="button" onClick={() => setTemplate(t)}
+                                    className={"px-2.5 py-1 rounded-md text-xs font-bold transition-all " + (template === t ? "bg-primary/20 text-primary" : "text-zinc-500 hover:text-zinc-300")}>
+                                    {TEMPLATE_META[t]}
+                                </button>
+                            ))}
                         </div>
-                    );
-                })}
+                    </>
+                }
+                right={<PrintButton invoiceNumber={document.number} clientName={client?.name} />}
+            />
+
+            <div className="flex flex-col gap-8 print:block print:gap-0 print:bg-white">
+                {paginatedItems.map((pageItems, pageIndex) => (
+                    <DocumentPage
+                        key={pageIndex}
+                        docTitle={'Bon de\nCommande'}
+                        docNumber={document.number}
+                        date={document.date}
+                        ws={ws}
+                        client={client}
+                        template={template}
+                        brandColor={brandColor}
+                        pageItems={pageItems}
+                        pageIndex={pageIndex}
+                        totalPages={paginatedItems.length}
+                        isLastPage={pageIndex === paginatedItems.length - 1}
+                        showPrices={true}
+                        stampLabel="COMMANDE VALIDÉE"
+                        totals={totals}
+                        showStamp={showStamp}
+                        showSignature={showSignature}
+                        clientLabel="Fournisseur"
+                    />
+                ))}
             </div>
         </main>
     )

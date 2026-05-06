@@ -4,10 +4,11 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
-export async function updateDeliveryNote(id: string, formData: FormData) {
+async function createSupabaseClient() {
     const cookieStore = await cookies()
-    const supabase = createServerClient(
+    return createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
@@ -17,6 +18,71 @@ export async function updateDeliveryNote(id: string, formData: FormData) {
             }
         }
     )
+}
+
+async function generateNextNumber(supabase: any, table: string, column: string, prefix: string) {
+    const year = new Date().getFullYear()
+    const { data } = await supabase.from(table).select(column).ilike(column, `${prefix}-${year}-%`).order('created_at', { ascending: false }).limit(1).single()
+    let nextIndex = 1
+    if (data?.[column]) {
+        const parts = (data[column] as string).split('-')
+        const lastNum = parseInt(parts[parts.length - 1])
+        if (!isNaN(lastNum)) nextIndex = lastNum + 1
+    }
+    return `${prefix}-${year}-${nextIndex.toString().padStart(4, '0')}`
+}
+
+export async function createDeliveryNote(formData: FormData) {
+    const supabase = await createSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié.' }
+
+    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
+    if (!workspaceId) return { error: 'Espace de travail introuvable.' }
+
+    const clientId = formData.get('client_id')
+    const rawDate = formData.get('date') as string | null
+    const date = rawDate?.trim() || new Date().toISOString().split('T')[0]
+
+    const itemsJson = formData.get('items') as string
+    const items: any[] = itemsJson ? JSON.parse(itemsJson) : []
+
+    const number = await generateNextNumber(supabase, 'delivery_notes', 'number', 'BL')
+
+    const { data: dn, error: dnError } = await supabase
+        .from('delivery_notes')
+        .insert({ workspace_id: workspaceId, client_id: clientId, owner_id: user.id, number, date, status: 'draft' })
+        .select()
+        .single()
+
+    if (dnError) return { error: `Erreur DB: ${dnError.message}` }
+
+    if (items.length > 0) {
+        const { error: itemsError } = await supabase.from('delivery_note_items').insert(
+            items.map(item => ({
+                delivery_note_id: dn.id,
+                description: item.description,
+                unit: item.unit || null,
+                quantity: Number(item.quantity) || 0,
+            }))
+        )
+        if (itemsError) {
+            await supabase.from('delivery_notes').delete().eq('id', dn.id)
+            return { error: `Erreur lignes: ${itemsError.message}` }
+        }
+    }
+
+    revalidatePath('/delivery-notes')
+    redirect(`/delivery-notes/${dn.id}`)
+}
+
+export async function updateDeliveryNote(id: string, formData: FormData) {
+    const supabase = await createSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié.' }
+
+    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
+    if (!workspaceId) return { error: 'Espace de travail introuvable.' }
 
     const clientId = formData.get('client_id')
     const number = formData.get('number') as string
@@ -26,7 +92,6 @@ export async function updateDeliveryNote(id: string, formData: FormData) {
     const itemsJson = formData.get('items') as string
     const items = itemsJson ? JSON.parse(itemsJson) : []
 
-    // 1. Update main record (Removed updated_at)
     const { error: dnError } = await supabase
         .from('delivery_notes')
         .update({
@@ -36,10 +101,10 @@ export async function updateDeliveryNote(id: string, formData: FormData) {
             status: status
         })
         .eq('id', id)
+        .eq('workspace_id', workspaceId) // IDOR guard
 
     if (dnError) return { error: dnError.message }
 
-    // 2. Replace items
     await supabase.from('delivery_note_items').delete().eq('delivery_note_id', id)
 
     if (items.length > 0) {

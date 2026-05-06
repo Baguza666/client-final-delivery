@@ -3,8 +3,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
-// Helper to create the client securely
 async function createClient() {
     const cookieStore = await cookies()
     return createServerClient(
@@ -19,27 +19,39 @@ async function createClient() {
     )
 }
 
-// --- 1. CREATE EXPENSE (Fixed Export) ---
+// --- 1. CREATE EXPENSE ---
 export async function createExpense(formData: any) {
     const supabase = await createClient()
 
+    // Auth check: workspace_id is derived from the session, never from the caller
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié.' }
+
+    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
+    if (!workspaceId) return { error: 'Espace de travail introuvable.' }
+
+    const amount = parseFloat(formData.amount)
+    if (isNaN(amount) || amount <= 0) return { error: 'Montant invalide.' }
+
     try {
-        const { error } = await supabase.from('expenses').insert({
+        const payload: Record<string, any> = {
+            workspace_id: workspaceId, // Always from session, never from caller
             description: formData.description,
-            amount: parseFloat(formData.amount),
+            amount,
             category: formData.category,
             date: formData.date,
             payment_method: formData.payment_method || 'Espèces',
             proof_url: formData.proof_url || null,
             is_recurring: formData.is_recurring === 'true' || formData.is_recurring === true,
             frequency: formData.frequency || null,
-            status: 'paid'
-        })
+            status: 'paid',
+        }
 
+        const { error } = await supabase.from('expenses').insert(payload)
         if (error) throw new Error(error.message)
 
         revalidatePath('/expenses')
-        revalidatePath('/') // Updates Dashboard Treasury
+        revalidatePath('/')
         return { success: true }
 
     } catch (error: any) {
@@ -47,25 +59,30 @@ export async function createExpense(formData: any) {
     }
 }
 
-// --- 2. PAY DEBT ---
+// --- 2. PAY DEBT INSTALLMENT ---
 export async function payDebtInstallment(debtId: string, amount: number, debtName: string) {
     const supabase = await createClient()
 
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié.' }
+
+    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
+    if (!workspaceId) return { error: 'Espace de travail introuvable.' }
+
     try {
-        // A. Get current debt info
+        // Fetch debt and verify it belongs to the authenticated user's workspace
         const { data: debt, error: fetchError } = await supabase
             .from('debts')
-            .select('remaining_amount')
+            .select('remaining_amount, workspace_id')
             .eq('id', debtId)
+            .eq('workspace_id', workspaceId) // IDOR guard
             .single()
 
         if (fetchError || !debt) throw new Error("Dette introuvable.")
 
-        // B. Calculate new remaining amount
         const newRemaining = Math.max(0, debt.remaining_amount - amount)
         const newStatus = newRemaining === 0 ? 'paid' : 'active'
 
-        // C. Update Debt Record (Now 'last_payment' will work after SQL fix)
         const { error: updateError } = await supabase
             .from('debts')
             .update({
@@ -74,11 +91,12 @@ export async function payDebtInstallment(debtId: string, amount: number, debtNam
                 last_payment: new Date().toISOString()
             })
             .eq('id', debtId)
+            .eq('workspace_id', workspaceId)
 
         if (updateError) throw new Error(`Erreur DB: ${updateError.message}`)
 
-        // D. Create Expense (Trace in Treasury)
         const { error: expenseError } = await supabase.from('expenses').insert({
+            workspace_id: workspaceId,
             description: `Remboursement Dette: ${debtName}`,
             amount: amount,
             category: 'Dette',
@@ -89,7 +107,6 @@ export async function payDebtInstallment(debtId: string, amount: number, debtNam
 
         if (expenseError) throw new Error("Erreur création dépense.")
 
-        // Force refresh everything
         revalidatePath('/', 'layout')
 
         return { success: true }
@@ -98,4 +115,26 @@ export async function payDebtInstallment(debtId: string, amount: number, debtNam
         console.error("Payment Error:", error)
         return { error: error.message }
     }
+}
+
+// --- 3. DELETE EXPENSE ---
+export async function deleteExpense(id: string) {
+    const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Non authentifié.' }
+
+    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
+    if (!workspaceId) return { error: 'Espace de travail introuvable.' }
+
+    const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', id)
+        .eq('workspace_id', workspaceId) // IDOR guard
+
+    if (error) return { error: error.message }
+    revalidatePath('/expenses')
+    revalidatePath('/')
+    return { success: true }
 }

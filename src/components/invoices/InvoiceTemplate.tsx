@@ -27,13 +27,15 @@ export default function InvoiceTemplate({ data }: InvoiceTemplateProps) {
             <div className="flex justify-between items-start mb-12">
                 <div className="flex flex-col">
                     <h1 className="text-2xl font-black tracking-tighter uppercase mb-2">
-                        IMSAL<span className="text-[#f4b943]">SERVICES</span>
+                        {workspace?.name || 'Votre entreprise'}
                     </h1>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest">Travaux Divers & Aménagement</p>
+                    {workspace?.tagline && (
+                        <p className="text-xs text-gray-500 uppercase tracking-widest">{workspace.tagline}</p>
+                    )}
                 </div>
 
                 <div className="text-right">
-                    <h2 className="text-4xl font-light text-[#f4b943] tracking-widest uppercase mb-1">Facture</h2>
+                    <h2 className="text-4xl font-light text-[#3B82F6] tracking-widest uppercase mb-1">Facture</h2>
                     <p className="text-sm font-bold text-gray-400"># {invoice_number}</p>
                 </div>
             </div>
@@ -43,11 +45,12 @@ export default function InvoiceTemplate({ data }: InvoiceTemplateProps) {
                 {/* FROM */}
                 <div className="w-1/3 text-xs text-gray-600 leading-relaxed">
                     <p className="font-bold text-black uppercase mb-1">Émetteur</p>
-                    <p>{workspace?.name || 'IMSAL SERVICES'}</p>
-                    <p>123 Bd Mohammed V</p>
-                    <p>Casablanca, Maroc</p>
-                    {/* ✅ FIXED: Removed 'user' and replaced with safe workspace access or fallback */}
-                    <p className="mt-2">{workspace?.email || 'contact@imsalservices.com'}</p>
+                    <p>{workspace?.name || '—'}</p>
+                    {workspace?.address && <p>{workspace.address}</p>}
+                    {(workspace?.city || workspace?.country) && (
+                        <p>{[workspace?.city, workspace?.country].filter(Boolean).join(', ')}</p>
+                    )}
+                    {workspace?.email && <p className="mt-2">{workspace.email}</p>}
                 </div>
 
                 {/* DATES */}
@@ -81,7 +84,7 @@ export default function InvoiceTemplate({ data }: InvoiceTemplateProps) {
             <div className="flex-1 mb-10">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="border-b-2 border-[#f4b943] text-[#f4b943] text-xs uppercase tracking-wider">
+                        <tr className="border-b-2 border-[#3B82F6] text-[#3B82F6] text-xs uppercase tracking-wider">
                             <th className="py-3 font-bold w-1/2">Description / Service</th>
                             <th className="py-3 font-bold text-right">Qté</th>
                             <th className="py-3 font-bold text-right">Prix Unitaire</th>
@@ -115,18 +118,25 @@ export default function InvoiceTemplate({ data }: InvoiceTemplateProps) {
                     <div className="h-px bg-gray-200 my-2"></div>
                     <div className="flex justify-between items-center">
                         <span className="text-base font-bold text-black uppercase">Total TTC</span>
-                        <span className="text-2xl font-black text-[#f4b943]">{total.toFixed(2)} <span className="text-xs text-black">DH</span></span>
+                        <span className="text-2xl font-black text-[#3B82F6]">{total.toFixed(2)} <span className="text-xs text-black">DH</span></span>
                     </div>
                 </div>
             </div>
 
             {/* 5. FOOTER */}
             <div className="mt-auto pt-8 border-t border-gray-100 text-center text-[10px] text-gray-400 uppercase tracking-widest">
-                <p className="mb-1">{workspace?.name || 'IMSAL SERVICES'} • ICE: 123456789 • RC: 98765 • IF: 112233</p>
+                <p className="mb-1">
+                    {[
+                        workspace?.name,
+                        workspace?.ice && `ICE: ${workspace.ice}`,
+                        workspace?.rc && `RC: ${workspace.rc}`,
+                        workspace?.tax_id && `IF: ${workspace.tax_id}`,
+                    ].filter(Boolean).join(' • ')}
+                </p>
                 <p>Merci de votre confiance.</p>
             </div>
 
-            <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-[#f4b943]/20 to-transparent clip-path-triangle"></div>
+            <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-[#3B82F6]/20 to-transparent clip-path-triangle"></div>
         </div>
     );
 }

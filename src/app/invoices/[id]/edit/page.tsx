@@ -1,8 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
-import Sidebar from '@/components/Sidebar'
 import EditInvoiceForm from '@/components/invoices/EditInvoiceForm'
+import { getOrCreateWorkspace } from '@/lib/workspace'
 
 export default async function EditInvoicePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -20,29 +20,26 @@ export default async function EditInvoicePage({ params }: { params: Promise<{ id
         .eq('id', id)
         .single()
 
-    // 2. Fetch Clients (for the dropdown)
-    const { data: clients } = await supabase
-        .from('clients')
-        .select('*')
-        .order('name')
+    const { data: { user } } = await supabase.auth.getUser()
+    const workspaceId = user ? await getOrCreateWorkspace(supabase, user.id) : ''
+
+    const [{ data: clients }, { data: products }] = await Promise.all([
+        supabase.from('clients').select('*').order('name'),
+        supabase.from('products').select('id, name, description, price, unit, base_currency')
+            .eq('workspace_id', workspaceId).order('name'),
+    ])
 
     if (!invoice) return notFound()
 
     return (
-        <div className="bg-black min-h-screen font-['Inter'] text-white flex">
-            {/* Sidebar */}
-            <div className="fixed left-0 top-0 h-screen z-20 hidden md:block">
-                <Sidebar />
-            </div>
-
-            {/* Main Content */}
-            <main className="md:ml-72 w-full p-8 md:p-12">
+        <div className="min-h-screen flex">
+            <main className="px-4 sm:px-6 lg:px-8 py-6 md:py-8 w-full">
                 <div className="max-w-5xl mx-auto mb-8">
                     <h1 className="text-3xl font-bold mb-2">Modifier la Facture</h1>
                     <p className="text-zinc-500 font-mono text-sm">#{invoice.number || invoice.invoice_number}</p>
                 </div>
 
-                <EditInvoiceForm invoice={invoice} clients={clients || []} />
+                <EditInvoiceForm invoice={invoice} clients={clients || []} products={products || []} />
             </main>
         </div>
     )

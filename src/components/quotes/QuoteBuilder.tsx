@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import {
@@ -14,6 +14,9 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { createQuote, updateQuote } from './QuoteActions'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import ProductCombobox, { type CatalogProduct } from '@/components/ui/ProductCombobox'
+import { convertStatic, needsConversion, conversionRate } from '@/utils/currency'
 
 const COLUMN_WIDTHS = {
     description: 'flex-1 min-w-[200px]',
@@ -25,11 +28,21 @@ const COLUMN_WIDTHS = {
 }
 
 interface Client { id: string; name: string }
-interface QuoteItem { description: string; unit: string; quantity: number; unit_price: number; total: number }
+interface QuoteItem {
+    description: string
+    unit: string
+    quantity: number
+    unit_price: number       // always in MAD (quotes have no currency field)
+    total: number
+    tva_rate: number
+    original_price?: number  // product price in base_currency, frozen at selection
+    base_currency?: string   // product's base_currency, frozen at selection
+    rate_snapshot?: number   // 1 base_currency = N MAD at time of selection
+}
 
-const emptyItem = (): QuoteItem => ({ description: '', unit: 'U', quantity: 1, unit_price: 0, total: 0 })
+const emptyItem = (): QuoteItem => ({ description: '', unit: 'U', quantity: 1, unit_price: 0, total: 0, tva_rate: 20 })
 
-export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
+export default function QuoteBuilder({ quoteId, products = [] }: { quoteId?: string; products?: CatalogProduct[] }) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [fetching, setFetching] = useState(!!quoteId)
@@ -68,7 +81,8 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                             unit: i.unit || 'U',
                             quantity: i.quantity,
                             unit_price: i.unit_price,
-                            total: i.total
+                            total: i.total,
+                            tva_rate: Number(i.tva_rate) || 20,
                         })))
                     }
                 }
@@ -87,15 +101,34 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
         return { subtotal, discountAmount, netHT, tva, totalTTC }
     }, [items, discountRate])
 
+    const initialSnapshot = useRef<string | null>(null)
+    useEffect(() => {
+        if (!fetching) {
+            initialSnapshot.current = JSON.stringify({ quoteNumber, clientId, date, discountRate, notes, items })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fetching])
+    const isDirty = !loading && initialSnapshot.current !== null &&
+        JSON.stringify({ quoteNumber, clientId, date, discountRate, notes, items }) !== initialSnapshot.current
+    useUnsavedChanges(isDirty)
+
     const updateItem = useCallback((index: number, field: keyof QuoteItem, value: string | number) => {
         setItems((prev) => {
             const updated = [...prev]
             const item = { ...updated[index] }
-            if (field === 'description' || field === 'unit') { (item as any)[field] = value }
-            else {
+            if (field === 'description' || field === 'unit') {
+                (item as any)[field] = value
+            } else {
                 const num = typeof value === 'string' ? parseFloat(value) || 0 : value
                 if (field === 'quantity') item.quantity = num
-                if (field === 'unit_price') item.unit_price = num
+                if (field === 'unit_price') {
+                    // Manual price edit clears conversion snapshot
+                    item.unit_price = num
+                    item.original_price = undefined
+                    item.base_currency = undefined
+                    item.rate_snapshot = undefined
+                }
+                if (field === 'tva_rate') item.tva_rate = num
             }
             item.total = item.quantity * item.unit_price
             updated[index] = item
@@ -129,10 +162,10 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
 
     const formatCurrency = (value: number) => new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2 }).format(value) + ' DH'
 
-    if (fetching) return <div className="min-h-screen bg-black pl-72 text-white flex items-center justify-center">Chargement du devis...</div>
+    if (fetching) return <div className="min-h-screen flex items-center justify-center">Chargement du devis...</div>
 
     return (
-        <div className="min-h-screen bg-black pl-72 text-white font-sans">
+        <div className="min-h-screen text-white font-sans">
             <div className="w-full p-8 space-y-8">
 
                 {/* HEADER */}
@@ -141,12 +174,12 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                         <Link href={quoteId ? `/quotes/${quoteId}` : "/quotes"} className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-all">
                             <ArrowLeft size={20} />
                         </Link>
-                        <h1 className="text-2xl font-bold flex items-center gap-3"><Receipt size={24} className="text-[#EAB308]" />{quoteId ? 'Modifier le Devis' : 'Nouveau Devis'}</h1>
+                        <h1 className="text-2xl font-bold flex items-center gap-3"><Receipt size={24} className="text-primary" />{quoteId ? 'Modifier le Devis' : 'Nouveau Devis'}</h1>
                     </div>
                 </div>
 
                 {/* CONFIGURATION BAR */}
-                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6">
+                <div className="bg-white/[0.025] border border-white/[0.06] rounded-xl p-6">
                     <div className="flex flex-wrap gap-8">
                         {/* ✅ Added Quote Number Input */}
                         <div className="w-48 space-y-2">
@@ -156,14 +189,14 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                                 value={quoteNumber}
                                 onChange={(e) => setQuoteNumber(e.target.value)}
                                 placeholder="Auto-généré"
-                                className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg px-4 text-white outline-none focus:border-[#EAB308] transition-all font-medium"
+                                className="w-full h-12 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 text-white outline-none focus:border-primary/60 transition-all font-medium"
                             />
                         </div>
 
                         <div className="flex-grow min-w-[250px] space-y-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Client</label>
                             <div className="relative">
-                                <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg px-4 text-white outline-none focus:border-[#EAB308] appearance-none transition-all font-medium">
+                                <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full h-12 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 text-white outline-none focus:border-primary/60 appearance-none transition-all font-medium">
                                     <option value="">-- Sélectionner un client --</option>
                                     {clients.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                                 </select>
@@ -174,7 +207,7 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                         <div className="w-48 space-y-2">
                             <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Date d'émission</label>
                             <div className="relative">
-                                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full h-12 bg-zinc-900 border border-zinc-700 rounded-lg px-4 pl-12 text-white outline-none focus:border-[#EAB308] transition-all font-medium" />
+                                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full h-12 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 pl-12 text-white outline-none focus:border-primary/60 transition-all font-medium" />
                                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" size={18} />
                             </div>
                         </div>
@@ -182,7 +215,7 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                 </div>
 
                 {/* ITEMS TABLE */}
-                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl shadow-sm">
+                <div className="bg-white/[0.025] border border-white/[0.06] rounded-xl shadow-sm">
                     <div className="overflow-x-auto">
                         <div className="min-w-[700px]">
                             <div className="flex gap-3 px-4 py-3 bg-zinc-900/80 border-b border-zinc-800 text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
@@ -190,30 +223,69 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                             </div>
                             <div className="p-3 space-y-2">
                                 {items.map((item, i) => (
-                                    <div key={i} className="flex gap-3 items-center bg-zinc-800/30 p-3 rounded-lg border border-transparent hover:border-zinc-700 transition-all">
-                                        <div className="flex-1 min-w-[200px]"><input value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-white placeholder-zinc-600 outline-none focus:border-[#EAB308] text-sm" placeholder="Description..." /></div>
-                                        <div className="w-[70px] flex-shrink-0"><input value={item.unit} onChange={(e) => updateItem(i, 'unit', e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-center text-white text-xs font-bold uppercase focus:border-[#EAB308] outline-none" placeholder="U" /></div>
-                                        <div className="w-[80px] flex-shrink-0"><input type="number" value={item.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-center text-white font-mono text-sm focus:border-[#EAB308] outline-none" /></div>
-                                        <div className="w-[100px] flex-shrink-0"><input type="number" step="0.01" value={item.unit_price} onChange={(e) => updateItem(i, 'unit_price', e.target.value)} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-right text-white font-mono text-sm focus:border-[#EAB308] outline-none" /></div>
+                                    <div key={i} className="flex gap-3 items-start bg-zinc-800/30 p-3 rounded-lg border border-transparent hover:border-zinc-700 transition-all">
+                                        <div className="flex-1 min-w-[200px]">
+                                            <ProductCombobox
+                                                products={products}
+                                                value={item.description}
+                                                onChange={val => updateItem(i, 'description', val)}
+                                                onSelect={product => {
+                                                    const prodCurrency = product.base_currency || 'MAD'
+                                                    const converts = needsConversion(prodCurrency, 'MAD')
+                                                    const convertedPrice = converts
+                                                        ? convertStatic(product.price, prodCurrency, 'MAD')
+                                                        : product.price
+                                                    setItems(prev => prev.map((it, idx) => idx === i ? {
+                                                        ...it,
+                                                        description: product.name,
+                                                        unit: product.unit,
+                                                        unit_price: convertedPrice,
+                                                        total: it.quantity * convertedPrice,
+                                                        ...(converts ? {
+                                                            original_price: product.price,
+                                                            base_currency: prodCurrency,
+                                                            rate_snapshot: conversionRate(prodCurrency, 'MAD'),
+                                                        } : {
+                                                            original_price: undefined,
+                                                            base_currency: undefined,
+                                                            rate_snapshot: undefined,
+                                                        }),
+                                                    } : it))
+                                                }}
+                                                placeholder="Description..."
+                                                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-white placeholder-zinc-600 outline-none focus:border-primary/60 text-sm"
+                                            />
+                                        </div>
+                                        <div className="w-[70px] flex-shrink-0"><input value={item.unit} onChange={(e) => updateItem(i, 'unit', e.target.value)} className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-2 py-2 text-center text-white text-xs font-bold uppercase focus:border-primary/60 outline-none" placeholder="U" /></div>
+                                        <div className="w-[80px] flex-shrink-0"><input type="number" value={item.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)} className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-2 py-2 text-center text-white font-mono text-sm focus:border-primary/60 outline-none" /></div>
+                                        <div className="w-[100px] flex-shrink-0">
+                                            <input type="number" step="0.01" value={item.unit_price} onChange={(e) => updateItem(i, 'unit_price', e.target.value)} className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-2 py-2 text-right text-white font-mono text-sm focus:border-primary/60 outline-none" />
+                                            {item.original_price != null && item.base_currency && (
+                                                <p className="text-[9px] text-zinc-500 text-right mt-0.5 font-mono leading-tight">
+                                                    <span className="material-symbols-outlined text-[9px] align-middle">swap_horiz</span>
+                                                    {' '}{item.original_price.toFixed(2)} {item.base_currency} · {item.rate_snapshot?.toFixed(2)}
+                                                </p>
+                                            )}
+                                        </div>
                                         <div className="w-[100px] flex-shrink-0 text-right font-mono text-white font-bold text-sm py-2">{formatCurrency(item.total).replace(' DH', '')}</div>
                                         <div className="w-[40px] flex-shrink-0 flex justify-center"><button onClick={() => removeItem(i)} className="text-zinc-600 hover:text-red-500 transition-colors p-1"><Trash2 size={16} /></button></div>
                                     </div>
                                 ))}
-                                <button onClick={addItem} className="w-full py-3 mt-2 border border-dashed border-zinc-700 rounded-lg text-zinc-500 hover:text-[#EAB308] hover:border-[#EAB308] hover:bg-[#EAB308]/5 transition-all text-sm font-bold flex items-center justify-center gap-2"><Plus size={16} /> Ajouter un article</button>
+                                <button onClick={addItem} className="w-full py-3 mt-2 border border-dashed border-zinc-700 rounded-lg text-zinc-500 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-all text-sm font-bold flex items-center justify-center gap-2"><Plus size={16} /> Ajouter un article</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* RÉCAPITULATIF & NOTES */}
-                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-6">
+                <div className="bg-white/[0.025] border border-white/[0.06] rounded-xl p-6">
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-10">
 
                         {/* Left Side: Discount & Custom Notes */}
                         <div className="w-full md:w-1/2 flex flex-col gap-6">
                             <div className="flex items-center gap-4">
                                 <span className="text-sm text-zinc-400">Remise (%)</span>
-                                <input type="number" value={discountRate} onChange={(e) => setDiscountRate(parseFloat(e.target.value) || 0)} className="w-20 h-10 bg-zinc-900 border border-zinc-700 rounded-lg text-center text-white text-sm font-mono focus:border-[#EAB308] outline-none" />
+                                <input type="number" value={discountRate} onChange={(e) => setDiscountRate(parseFloat(e.target.value) || 0)} className="w-20 h-10 bg-white/[0.04] border border-white/[0.08] rounded-xl text-center text-white text-sm font-mono focus:border-primary/60 outline-none" />
                             </div>
                             <div className="flex flex-col gap-2">
                                 <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">Conditions / Notes de paiement</label>
@@ -221,7 +293,7 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
                                     placeholder="Ex: Acompte de 30% à la commande..."
-                                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-white text-sm outline-none focus:border-[#EAB308] resize-y min-h-[80px]"
+                                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl p-3 text-white text-sm outline-none focus:border-primary/60 resize-y min-h-[80px]"
                                 />
                             </div>
                         </div>
@@ -230,11 +302,11 @@ export default function QuoteBuilder({ quoteId }: { quoteId?: string }) {
                         <div className="flex flex-wrap items-end justify-end gap-6 md:gap-10 pt-4 md:pt-0">
                             <div className="text-center"><p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider mb-1">Total HT</p><p className="text-white font-mono text-lg">{formatCurrency(totals.subtotal)}</p></div>
                             <div className="text-center"><p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider mb-1">TVA 20%</p><p className="text-white font-mono text-lg">{formatCurrency(totals.tva)}</p></div>
-                            <div className="text-center"><p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider mb-1">Net à Payer</p><p className="text-[#EAB308] font-mono text-2xl font-black">{formatCurrency(totals.totalTTC)}</p></div>
+                            <div className="text-center"><p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider mb-1">Net à Payer</p><p className="text-primary font-mono text-2xl font-black">{formatCurrency(totals.totalTTC)}</p></div>
                         </div>
                     </div>
 
-                    <button onClick={handleSubmit} disabled={loading} className="w-full mt-8 bg-[#EAB308] text-black font-bold h-12 rounded-xl hover:bg-[#FACC15] transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider disabled:opacity-50">
+                    <button onClick={handleSubmit} disabled={loading} className="w-full mt-8 bg-primary hover:bg-primary/90 text-white font-bold h-12 rounded-xl transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider disabled:opacity-50">
                         {loading ? "Enregistrement..." : <><Save size={18} /> Enregistrer le devis</>}
                     </button>
                 </div>

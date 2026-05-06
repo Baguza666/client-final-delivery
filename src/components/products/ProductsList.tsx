@@ -86,7 +86,7 @@ export default function ProductsList({ initialProducts }: { initialProducts: any
                 <div className="flex justify-end mb-6">
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-gold-gradient text-black px-6 py-2 rounded-xl font-bold hover:scale-105 transition-transform flex items-center gap-2"
+                        className="bg-brand-gradient text-black px-6 py-2 rounded-xl font-bold hover:scale-105 transition-transform flex items-center gap-2"
                     >
                         <span className="material-symbols-outlined text-[20px]">
                             {isAdmin ? 'add' : 'outgoing_mail'}
@@ -99,7 +99,7 @@ export default function ProductsList({ initialProducts }: { initialProducts: any
             {/* List */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {products.map((product) => (
-                    <div key={product.id} className="glass-card p-6 rounded-2xl border border-white/5 hover:border-primary/50 transition-colors group relative">
+                    <div key={product.id} className="bg-white/[0.025] border border-white/[0.06] p-6 rounded-2xl hover:border-primary/50 transition-colors group relative">
 
                         {/* Delete: Admin Only */}
                         {isAdmin && (
@@ -115,12 +115,12 @@ export default function ProductsList({ initialProducts }: { initialProducts: any
                         </div>
 
                         <h3 className="text-white font-bold text-lg">{product.name}</h3>
-                        <p className="text-text-secondary text-sm mb-4 line-clamp-2 min-h-[40px]">
+                        <p className="text-zinc-500 text-sm mb-4 line-clamp-2 min-h-[40px]">
                             {product.description || 'Aucune description'}
                         </p>
 
                         <div className="pt-4 border-t border-white/5 flex justify-between items-end">
-                            <span className="text-xs text-text-secondary uppercase">Prix unitaire</span>
+                            <span className="text-xs text-zinc-500 uppercase">Prix unitaire</span>
                             <span className="text-primary font-bold text-xl">{product.price} Dh</span>
                         </div>
                     </div>
@@ -129,7 +129,7 @@ export default function ProductsList({ initialProducts }: { initialProducts: any
 
             {/* Empty State */}
             {products.length === 0 && (
-                <div className="text-center py-20 text-text-secondary">
+                <div className="text-center py-20 text-zinc-500">
                     <span className="material-symbols-outlined text-6xl mb-4 opacity-20">inventory_2</span>
                     <p>Aucun service enregistré.</p>
                 </div>
@@ -139,7 +139,7 @@ export default function ProductsList({ initialProducts }: { initialProducts: any
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
                     <div className="bg-[#0A0A0A] border border-white/10 p-8 rounded-3xl max-w-md w-full relative">
-                        <button onClick={closeModal} className="absolute top-4 right-4 text-text-secondary hover:text-white">
+                        <button onClick={closeModal} className="absolute top-4 right-4 text-zinc-500 hover:text-white">
                             <span className="material-symbols-outlined">close</span>
                         </button>
 
@@ -167,7 +167,7 @@ export default function ProductsList({ initialProducts }: { initialProducts: any
                                 className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-primary h-24 resize-none"
                             />
 
-                            <button disabled={loading} className="mt-2 bg-gold-gradient text-black font-bold py-3 rounded-xl hover:opacity-90 transition-opacity">
+                            <button disabled={loading} className="mt-2 bg-brand-gradient text-black font-bold py-3 rounded-xl hover:opacity-90 transition-opacity">
                                 {loading ? 'Traitement...' : (isAdmin ? 'AJOUTER' : 'ENVOYER LA DEMANDE')}
                             </button>
                         </form>
