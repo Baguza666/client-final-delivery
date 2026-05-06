@@ -50,9 +50,13 @@ export async function convertQuoteToInvoice(quoteId: string) {
         const items = quote.quote_items || []
         const totalHT_Gross = items.reduce((sum: number, item: any) => sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0)
         const discount = quote.discount || 0
-        const discountAmount = totalHT_Gross * (discount / 100)
-        const totalHT_Net = totalHT_Gross - discountAmount
-        const totalTVA = totalHT_Net * 0.20
+        const discountRatio = totalHT_Gross > 0 ? (1 - discount / 100) : 1
+        const totalHT_Net = totalHT_Gross * discountRatio
+        const totalTVA = items.reduce((sum: number, item: any) => {
+            const lineHT = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * discountRatio
+            const rate = item.tva_rate != null ? Number(item.tva_rate) : 20
+            return sum + lineHT * (rate / 100)
+        }, 0)
         const totalTTC = totalHT_Net + totalTVA
 
         // 1. INVOICE
