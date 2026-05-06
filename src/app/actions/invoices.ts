@@ -573,6 +573,7 @@ export async function sendOverdueReminders(): Promise<{
     const { data: overdueInvoices } = await supabase
         .from('invoices')
         .select('*, client:clients(*)')
+        .eq('workspace_id', wsId)
         .in('status', ['sent', 'partial', 'pending', 'en_attente'])
         .not('due_date', 'is', null)
         .lt('due_date', today.toISOString().split('T')[0])
@@ -611,11 +612,16 @@ export async function sendOverdueReminders(): Promise<{
 
 export async function getOverdueInvoicesCount(): Promise<number> {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return 0
+    const wsId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
+    if (!wsId) return 0
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const { count } = await supabase
         .from('invoices')
         .select('id', { count: 'exact', head: true })
+        .eq('workspace_id', wsId)
         .in('status', ['sent', 'partial', 'pending', 'en_attente'])
         .not('due_date', 'is', null)
         .lt('due_date', today.toISOString().split('T')[0])
