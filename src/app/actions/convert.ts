@@ -85,7 +85,7 @@ export async function convertQuoteToInvoice(quoteId: string) {
             unit: item.unit || null,
             quantity: item.quantity,
             unit_price: item.unit_price,
-            tva_rate: Number(item.tva_rate) || 20,
+            tva_rate: item.tva_rate != null ? Number(item.tva_rate) : 20,
             total: item.total
         }))
         await supabase.from('invoice_items').insert(invoiceItems)
