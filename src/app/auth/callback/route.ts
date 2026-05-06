@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { getOrCreateWorkspace } from '@/lib/workspace'
+
+function safeNext(raw: string | null): string {
+    if (!raw) return '/dashboard'
+    if (raw.startsWith('/') && !raw.startsWith('//') && !raw.includes('://')) {
+        return raw
+    }
+    return '/dashboard'
+}
 
 export async function GET(request: Request) {
     const requestUrl = new URL(request.url)
     const code = requestUrl.searchParams.get('code')
-    const next = requestUrl.searchParams.get('next') ?? '/'
-
-    // Debug logging
-    console.log('=== AUTH CALLBACK ===')
-    console.log('Code received:', code ? 'YES' : 'NO')
-    console.log('Next path:', next)
-    console.log('Request URL:', requestUrl.toString())
+    const next = safeNext(requestUrl.searchParams.get('next'))
 
     if (code) {
         const cookieStore = await cookies()
@@ -27,12 +30,9 @@ export async function GET(request: Request) {
                     setAll(cookiesToSet) {
                         try {
                             cookiesToSet.forEach(({ name, value, options }) => {
-                                console.log('Setting cookie:', name)
                                 cookieStore.set(name, value, options)
                             })
-                        } catch (error) {
-                            console.error('Cookie set error:', error)
-                        }
+                        } catch { }
                     },
                 },
             }
@@ -40,38 +40,31 @@ export async function GET(request: Request) {
 
         const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
-        console.log('Exchange result:', error ? `ERROR: ${error.message}` : 'SUCCESS')
-        console.log('Session user:', data?.user?.email ?? 'none')
+        if (!error && data.user) {
+            // Ensure workspace exists before first dashboard load.
+            try {
+                await getOrCreateWorkspace(supabase, data.user.id)
+            } catch (e) {
+                console.error('getOrCreateWorkspace failed in callback:', e)
+            }
 
-        if (!error) {
-            // Determine correct redirect URL
             const origin = requestUrl.origin
             const forwardedHost = request.headers.get('x-forwarded-host')
             const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
 
             let redirectUrl: string
-
             if (process.env.NODE_ENV === 'development') {
                 redirectUrl = `${origin}${next}`
             } else if (forwardedHost) {
-                // Production on Vercel
                 redirectUrl = `${forwardedProto}://${forwardedHost}${next}`
             } else {
                 redirectUrl = `${origin}${next}`
             }
 
-            console.log('Redirecting to:', redirectUrl)
-
             return NextResponse.redirect(redirectUrl)
-        } else {
-            console.error('Auth exchange failed:', error.message)
         }
-    } else {
-        console.log('No code in URL')
     }
 
-    // Fallback: redirect to login with error
-    const errorUrl = new URL('/login', requestUrl.origin)
-    errorUrl.searchParams.set('error', 'callback_failed')
+    const errorUrl = new URL('/auth/auth-code-error', requestUrl.origin)
     return NextResponse.redirect(errorUrl.toString())
 }
