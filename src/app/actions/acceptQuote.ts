@@ -75,7 +75,7 @@ export async function acceptQuote(quoteId: string) {
         description: item.description,
         quantity: item.quantity,
         unit_price: item.unit_price,
-        tva_rate: Number(item.tva_rate) || 20,
+        tva_rate: item.tva_rate != null ? Number(item.tva_rate) : 20,
         total: item.total
     }))
     await supabase.from('purchase_order_items').insert(poItems)
