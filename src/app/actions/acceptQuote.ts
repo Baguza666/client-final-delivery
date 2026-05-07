@@ -4,6 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createHash } from 'crypto'
 import { getOrCreateWorkspace } from '@/lib/workspace'
+import type { PoLineItem, DnLineItem } from '@/lib/document-types'
 
 async function createClient() {
     const cookieStore = await cookies()
@@ -69,7 +70,7 @@ export async function acceptQuote(quoteId: string) {
     }
 
     // Generate PO Items
-    const poItems = quote.quote_items.map((item: any) => ({
+    const poItems: PoLineItem[] = quote.quote_items.map((item: any) => ({
         purchase_order_id: po.id,
         line_uid: item.id,
         description: item.description,
@@ -92,7 +93,7 @@ export async function acceptQuote(quoteId: string) {
     if (!dn) return { success: false, message: "Erreur création Bon de Livraison" }
 
     // Generate DN Items
-    const dnItems = poItems.map((item: any) => ({
+    const dnItems: DnLineItem[] = poItems.map((item) => ({
         delivery_note_id: dn.id,
         line_uid: item.line_uid,
         description: item.description,
@@ -112,16 +113,18 @@ export async function acceptQuote(quoteId: string) {
     if (!invoice) return { success: false, message: "Erreur création Facture" }
 
     // Generate Invoice Items
-    const invoiceItems = dnItems.map((item: any, idx: number) => {
-        const originalItem = poItems[idx]
+    const poByUid = new Map(poItems.map((p) => [p.line_uid, p]))
+    const invoiceItems = dnItems.map((item) => {
+        const original = poByUid.get(item.line_uid)
+        if (!original) throw new Error(`PO item missing for line_uid: ${item.line_uid}`)
         return {
             invoice_id: invoice.id,
             line_uid: item.line_uid,
             description: item.description,
             quantity: item.quantity,
-            unit_price: originalItem.unit_price,
-            tva_rate: originalItem.tva_rate,
-            total: item.quantity * originalItem.unit_price
+            unit_price: original.unit_price,
+            tva_rate: original.tva_rate,
+            total: item.quantity * original.unit_price,
         }
     })
     await supabase.from('invoice_items').insert(invoiceItems)
