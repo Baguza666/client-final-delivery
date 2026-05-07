@@ -9,13 +9,17 @@ export async function generateNextNumber(
     prefix: string,
 ): Promise<string> {
     const year = new Date().getFullYear()
-    const { data } = await supabase
+    const { data, error } = await supabase
         .from(table)
         .select(column)
         .ilike(column, `${prefix}-${year}-%`)
-        .order('created_at', { ascending: false })
+        .order(column, { ascending: false })
         .limit(1)
         .single()
+
+    if (error && error.code !== 'PGRST116') {
+        throw new Error(`generateNextNumber failed for ${table}.${column}: ${error.message}`)
+    }
 
     let nextIndex = 1
     if (data?.[column as keyof typeof data]) {
