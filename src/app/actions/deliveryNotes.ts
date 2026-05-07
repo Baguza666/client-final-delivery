@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getOrCreateWorkspace } from '@/lib/workspace'
+import { generateNextNumber } from '@/lib/document-numbering'
 
 async function createSupabaseClient() {
     const cookieStore = await cookies()
@@ -18,18 +19,6 @@ async function createSupabaseClient() {
             }
         }
     )
-}
-
-async function generateNextNumber(supabase: any, table: string, column: string, prefix: string) {
-    const year = new Date().getFullYear()
-    const { data } = await supabase.from(table).select(column).ilike(column, `${prefix}-${year}-%`).order('created_at', { ascending: false }).limit(1).single()
-    let nextIndex = 1
-    if (data?.[column]) {
-        const parts = (data[column] as string).split('-')
-        const lastNum = parseInt(parts[parts.length - 1])
-        if (!isNaN(lastNum)) nextIndex = lastNum + 1
-    }
-    return `${prefix}-${year}-${nextIndex.toString().padStart(4, '0')}`
 }
 
 export async function createDeliveryNote(formData: FormData) {

@@ -4,19 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { getOrCreateWorkspace } from '@/lib/workspace'
-
-async function generateNextNumber(supabase: any, table: string, column: string, prefix: string) {
-    const year = new Date().getFullYear()
-    const searchPattern = `${prefix}-${year}-%`
-    const { data } = await supabase.from(table).select(column).ilike(column, searchPattern).order('created_at', { ascending: false }).limit(1).single()
-    let nextIndex = 1
-    if (data && data[column]) {
-        const parts = data[column].split('-')
-        const lastNum = parseInt(parts[parts.length - 1])
-        if (!isNaN(lastNum)) nextIndex = lastNum + 1
-    }
-    return `${prefix}-${year}-${nextIndex.toString().padStart(4, '0')}`
-}
+import { generateNextNumber } from '@/lib/document-numbering'
 
 export async function convertQuoteToInvoice(quoteId: string) {
     try {
