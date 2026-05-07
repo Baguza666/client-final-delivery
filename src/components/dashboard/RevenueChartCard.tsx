@@ -2,7 +2,7 @@
 
 import { formatMAD } from '@/utils/format'
 import RevenueBarChart from './RevenueBarChart'
-import type { MonthBar } from '@/app/actions/dashboard'
+import type { MonthBar } from '@/lib/dashboard-helpers'
 
 interface RevenueChartCardProps {
     revenueByMonth: number[]

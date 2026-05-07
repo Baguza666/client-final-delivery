@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { Bell, CheckCircle, Clock, AlertTriangle } from 'lucide-react'
-import type { Reminder } from '@/app/actions/dashboard'
+import type { Reminder } from '@/lib/dashboard-helpers'
 import { formatMAD } from '@/utils/format'
 
 interface Props {

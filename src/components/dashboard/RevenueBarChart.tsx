@@ -2,7 +2,7 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { formatMAD } from '@/utils/format'
-import type { MonthBar } from '@/app/actions/dashboard'
+import type { MonthBar } from '@/lib/dashboard-helpers'
 
 function DarkTooltip({
     active,
