@@ -174,7 +174,7 @@ export default function AddExpenseModal({ isOpen, onClose, workspaceId }: AddExp
             proofUrl = (await handleUpload()) ?? ''
         }
         startTransition(async () => {
-            const res = await createExpense({ ...formData, proof_url: proofUrl, is_recurring: isRecurring, workspace_id: workspaceId })
+            const res = await createExpense({ ...formData, proof_url: proofUrl, is_recurring: isRecurring })
             if (res?.error) {
                 setError(res.error)
                 return

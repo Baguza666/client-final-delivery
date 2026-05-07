@@ -1,167 +1,49 @@
 'use server'
 
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { sendEmail } from './sendEmail'
-import { getOrCreateWorkspace } from '@/lib/workspace'
-
-// --- HELPER: Create Supabase Client ---
-async function createClient() {
-    const cookieStore = await cookies()
-    return createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                getAll() { return cookieStore.getAll() },
-                setAll(cookiesToSet) { try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) } catch { } }
-            }
-        }
-    )
-}
+import { withWorkspace } from '@/lib/action-wrapper'
 
 // --- 1. CREATE INVOICE ---
 export async function createInvoice(formData: FormData) {
-    const supabase = await createClient()
-    const { data: authData } = await supabase.auth.getUser()
-    const user = authData?.user
-    if (!user) return { error: 'Vous devez être connecté pour créer une facture.' }
+    return withWorkspace(async ({ supabase, user, workspaceId }) => {
+        const clientId = formData.get('client_id')
+        const rawDate = formData.get('date') as string | null
+        const rawDueDate = formData.get('due_date') as string | null
+        const date = rawDate?.trim() || new Date().toISOString().split('T')[0]
+        const dueDate = rawDueDate?.trim() || null
+        const status = formData.get('status') || 'draft'
+        let number = formData.get('number') as string
 
-    let workspaceId: string
-    try {
-        workspaceId = await getOrCreateWorkspace(supabase, user.id)
-    } catch (e: any) {
-        return { error: e.message }
-    }
+        // ✅ Extract Discount + Recurring + Currency
+        const discount = Number(formData.get('discount')) || 0
+        const is_recurring = formData.get('is_recurring') === 'true'
+        const frequency = formData.get('frequency') as string | null
+        const currency = (formData.get('currency') as string) || 'MAD'
+        const exchange_rate = Number(formData.get('exchange_rate')) || 1
 
-    const clientId = formData.get('client_id')
-    const rawDate = formData.get('date') as string | null
-    const rawDueDate = formData.get('due_date') as string | null
-    const date = rawDate?.trim() || new Date().toISOString().split('T')[0]
-    const dueDate = rawDueDate?.trim() || null
-    const status = formData.get('status') || 'draft'
-    let number = formData.get('number') as string
-
-    // ✅ Extract Discount + Recurring + Currency
-    const discount = Number(formData.get('discount')) || 0
-    const is_recurring = formData.get('is_recurring') === 'true'
-    const frequency = formData.get('frequency') as string | null
-    const currency = (formData.get('currency') as string) || 'MAD'
-    const exchange_rate = Number(formData.get('exchange_rate')) || 1
-
-    if (!number || number.trim() === '') {
-        number = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
-    }
-
-    const itemsJson = formData.get('items') as string
-    const items = itemsJson ? JSON.parse(itemsJson) : []
-
-    // Items are stored in document currency; multiply by exchange_rate for MAD-based reporting totals
-    const totalHT_Gross = items.reduce((sum: number, item: any) => sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0)
-    const discountRatio = totalHT_Gross > 0 ? (1 - discount / 100) : 1
-    const totalHT_Net = totalHT_Gross * discountRatio
-    const totalTVA = items.reduce((sum: number, item: any) => {
-        const lineHT = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * discountRatio
-        return sum + lineHT * ((item.tva_rate != null ? Number(item.tva_rate) : 20) / 100)
-    }, 0)
-    const totalTTC = totalHT_Net + totalTVA
-    // MAD-equivalent totals for reports (exchange_rate = 1 for MAD invoices, so no-op)
-    const totalTTC_MAD = totalTTC * exchange_rate
-
-    const insertPayload: any = {
-        workspace_id: workspaceId,
-        client_id: clientId,
-        invoice_number: number,
-        date: date,
-        issue_date: date,
-        due_date: dueDate,
-        status: status,
-        discount: discount,
-        total_ht: totalHT_Gross * exchange_rate,
-        total_tva: totalTVA * exchange_rate,
-        total_ttc: totalTTC_MAD,
-        is_recurring,
-        frequency: is_recurring ? frequency : null,
-        currency,
-        exchange_rate,
-    }
-
-    // Only attach owner_id if a real user is present to satisfy DB schema
-    if (user) insertPayload.owner_id = user.id
-
-    const { data: invoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .insert(insertPayload)
-        .select()
-        .single()
-
-    if (invoiceError) return { error: `Erreur DB: ${invoiceError.message}` }
-
-    if (items.length > 0) {
-        const { error: itemsError } = await supabase.from('invoice_items').insert(
-            items.map((item: any) => ({
-                invoice_id: invoice.id,
-                description: item.description,
-                unit: item.unit || null,
-                quantity: Number(item.quantity) || 0,
-                unit_price: Number(item.unit_price) || 0,
-                tva_rate: item.tva_rate != null ? Number(item.tva_rate) : 20,
-                total: (Number(item.quantity) || 0) * (Number(item.unit_price) || 0),
-                // Conversion metadata — null for manually typed lines
-                original_price: item.original_price != null ? Number(item.original_price) : null,
-                base_currency: item.base_currency ?? null,
-                rate_snapshot: item.rate_snapshot != null ? Number(item.rate_snapshot) : null,
-            }))
-        )
-        if (itemsError) {
-            // Roll back the orphaned invoice header so data stays consistent
-            await supabase.from('invoices').delete().eq('id', invoice.id)
-            return { error: `Erreur lignes de facture: ${itemsError.message}` }
+        if (!number || number.trim() === '') {
+            number = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
         }
-    }
 
-    revalidatePath('/invoices')
-    redirect(`/invoices/${invoice.id}`)
-}
+        const itemsJson = formData.get('items') as string
+        const items = itemsJson ? JSON.parse(itemsJson) : []
 
-// --- 2. UPDATE INVOICE ---
-export async function updateInvoice(invoiceId: string, formData: FormData) {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'Non authentifié.' }
-    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!workspaceId) return { error: 'Espace de travail introuvable.' }
+        // Items are stored in document currency; multiply by exchange_rate for MAD-based reporting totals
+        const totalHT_Gross = items.reduce((sum: number, item: { quantity: unknown; unit_price: unknown }) => sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0)
+        const discountRatio = totalHT_Gross > 0 ? (1 - discount / 100) : 1
+        const totalHT_Net = totalHT_Gross * discountRatio
+        const totalTVA = items.reduce((sum: number, item: { quantity: unknown; unit_price: unknown; tva_rate: unknown }) => {
+            const lineHT = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * discountRatio
+            return sum + lineHT * ((item.tva_rate != null ? Number(item.tva_rate) : 20) / 100)
+        }, 0)
+        const totalTTC = totalHT_Net + totalTVA
+        // MAD-equivalent totals for reports (exchange_rate = 1 for MAD invoices, so no-op)
+        const totalTTC_MAD = totalTTC * exchange_rate
 
-    const clientId = formData.get('client_id')
-    const rawDate = formData.get('date') as string | null
-    const rawDueDate = formData.get('due_date') as string | null
-    const date = rawDate?.trim() || new Date().toISOString().split('T')[0]
-    const dueDate = rawDueDate?.trim() || null
-    const status = formData.get('status')
-    const number = formData.get('number') as string
-    const discount = Number(formData.get('discount')) || 0
-
-    const itemsJson = formData.get('items') as string
-    const items = itemsJson ? JSON.parse(itemsJson) : []
-    const currency = (formData.get('currency') as string) || 'MAD'
-    const exchange_rate = Number(formData.get('exchange_rate')) || 1
-
-    // Items in document currency; multiply by exchange_rate for MAD-based reporting totals
-    const totalHT_Gross = items.reduce((sum: number, item: any) => sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0)
-    const discountRatio = totalHT_Gross > 0 ? (1 - discount / 100) : 1
-    const totalHT_Net = totalHT_Gross * discountRatio
-    const totalTVA = items.reduce((sum: number, item: any) => {
-        const lineHT = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * discountRatio
-        return sum + lineHT * ((item.tva_rate != null ? Number(item.tva_rate) : 20) / 100)
-    }, 0)
-    const totalTTC = totalHT_Net + totalTVA
-    const totalTTC_MAD = totalTTC * exchange_rate
-
-    const { error: invoiceError } = await supabase
-        .from('invoices')
-        .update({
+        const insertPayload = {
+            workspace_id: workspaceId,
             client_id: clientId,
             invoice_number: number,
             date: date,
@@ -172,123 +54,219 @@ export async function updateInvoice(invoiceId: string, formData: FormData) {
             total_ht: totalHT_Gross * exchange_rate,
             total_tva: totalTVA * exchange_rate,
             total_ttc: totalTTC_MAD,
+            is_recurring,
+            frequency: is_recurring ? frequency : null,
             currency,
             exchange_rate,
-        })
-        .eq('id', invoiceId)
-        .eq('workspace_id', workspaceId) // IDOR guard
+            owner_id: user.id,
+        }
 
-    if (invoiceError) return { error: invoiceError.message }
+        const { data: invoice, error: invoiceError } = await supabase
+            .from('invoices')
+            .insert(insertPayload)
+            .select()
+            .single()
 
-    await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId)
+        if (invoiceError) return { error: `Erreur DB: ${invoiceError.message}` }
 
-    if (items.length > 0) {
-        const { error: itemsError } = await supabase.from('invoice_items').insert(
-            items.map((item: any) => ({
-                invoice_id: invoiceId,
-                description: item.description,
-                unit: item.unit || null,
-                quantity: Number(item.quantity) || 0,
-                unit_price: Number(item.unit_price) || 0,
-                tva_rate: item.tva_rate != null ? Number(item.tva_rate) : 20,
-                total: (Number(item.quantity) || 0) * (Number(item.unit_price) || 0),
-                original_price: item.original_price != null ? Number(item.original_price) : null,
-                base_currency: item.base_currency ?? null,
-                rate_snapshot: item.rate_snapshot != null ? Number(item.rate_snapshot) : null,
-            }))
-        )
-        if (itemsError) return { error: `Erreur lignes de facture: ${itemsError.message}` }
-    }
+        if (items.length > 0) {
+            const { error: itemsError } = await supabase.from('invoice_items').insert(
+                items.map((item: {
+                    description: string
+                    unit?: string | null
+                    quantity: unknown
+                    unit_price: unknown
+                    tva_rate: unknown
+                    original_price?: unknown
+                    base_currency?: unknown
+                    rate_snapshot?: unknown
+                }) => ({
+                    invoice_id: invoice.id,
+                    description: item.description,
+                    unit: item.unit || null,
+                    quantity: Number(item.quantity) || 0,
+                    unit_price: Number(item.unit_price) || 0,
+                    tva_rate: item.tva_rate != null ? Number(item.tva_rate) : 20,
+                    total: (Number(item.quantity) || 0) * (Number(item.unit_price) || 0),
+                    // Conversion metadata — null for manually typed lines
+                    original_price: item.original_price != null ? Number(item.original_price) : null,
+                    base_currency: item.base_currency ?? null,
+                    rate_snapshot: item.rate_snapshot != null ? Number(item.rate_snapshot) : null,
+                }))
+            )
+            if (itemsError) {
+                // Roll back the orphaned invoice header so data stays consistent
+                await supabase.from('invoices').delete().eq('id', invoice.id)
+                return { error: `Erreur lignes de facture: ${itemsError.message}` }
+            }
+        }
 
-    revalidatePath(`/invoices/${invoiceId}`)
-    revalidatePath('/invoices')
-    redirect(`/invoices/${invoiceId}`)
+        revalidatePath('/invoices')
+        redirect(`/invoices/${invoice.id}`)
+    })
+}
+
+// --- 2. UPDATE INVOICE ---
+export async function updateInvoice(invoiceId: string, formData: FormData) {
+    return withWorkspace(async ({ supabase, workspaceId }) => {
+        const clientId = formData.get('client_id')
+        const rawDate = formData.get('date') as string | null
+        const rawDueDate = formData.get('due_date') as string | null
+        const date = rawDate?.trim() || new Date().toISOString().split('T')[0]
+        const dueDate = rawDueDate?.trim() || null
+        const status = formData.get('status')
+        const number = formData.get('number') as string
+        const discount = Number(formData.get('discount')) || 0
+
+        const itemsJson = formData.get('items') as string
+        const items = itemsJson ? JSON.parse(itemsJson) : []
+        const currency = (formData.get('currency') as string) || 'MAD'
+        const exchange_rate = Number(formData.get('exchange_rate')) || 1
+
+        // Items in document currency; multiply by exchange_rate for MAD-based reporting totals
+        const totalHT_Gross = items.reduce((sum: number, item: { quantity: unknown; unit_price: unknown }) => sum + ((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)), 0)
+        const discountRatio = totalHT_Gross > 0 ? (1 - discount / 100) : 1
+        const totalHT_Net = totalHT_Gross * discountRatio
+        const totalTVA = items.reduce((sum: number, item: { quantity: unknown; unit_price: unknown; tva_rate: unknown }) => {
+            const lineHT = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * discountRatio
+            return sum + lineHT * ((item.tva_rate != null ? Number(item.tva_rate) : 20) / 100)
+        }, 0)
+        const totalTTC = totalHT_Net + totalTVA
+        const totalTTC_MAD = totalTTC * exchange_rate
+
+        const { error: invoiceError } = await supabase
+            .from('invoices')
+            .update({
+                client_id: clientId,
+                invoice_number: number,
+                date: date,
+                issue_date: date,
+                due_date: dueDate,
+                status: status,
+                discount: discount,
+                total_ht: totalHT_Gross * exchange_rate,
+                total_tva: totalTVA * exchange_rate,
+                total_ttc: totalTTC_MAD,
+                currency,
+                exchange_rate,
+            })
+            .eq('id', invoiceId)
+            .eq('workspace_id', workspaceId) // IDOR guard
+
+        if (invoiceError) return { error: invoiceError.message }
+
+        await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId)
+
+        if (items.length > 0) {
+            const { error: itemsError } = await supabase.from('invoice_items').insert(
+                items.map((item: {
+                    description: string
+                    unit?: string | null
+                    quantity: unknown
+                    unit_price: unknown
+                    tva_rate: unknown
+                    original_price?: unknown
+                    base_currency?: unknown
+                    rate_snapshot?: unknown
+                }) => ({
+                    invoice_id: invoiceId,
+                    description: item.description,
+                    unit: item.unit || null,
+                    quantity: Number(item.quantity) || 0,
+                    unit_price: Number(item.unit_price) || 0,
+                    tva_rate: item.tva_rate != null ? Number(item.tva_rate) : 20,
+                    total: (Number(item.quantity) || 0) * (Number(item.unit_price) || 0),
+                    original_price: item.original_price != null ? Number(item.original_price) : null,
+                    base_currency: item.base_currency ?? null,
+                    rate_snapshot: item.rate_snapshot != null ? Number(item.rate_snapshot) : null,
+                }))
+            )
+            if (itemsError) return { error: `Erreur lignes de facture: ${itemsError.message}` }
+        }
+
+        revalidatePath(`/invoices/${invoiceId}`)
+        revalidatePath('/invoices')
+        redirect(`/invoices/${invoiceId}`)
+    })
 }
 
 // --- 3. DELETE INVOICE ---
 export async function deleteInvoice(invoiceId: string) {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'Non authentifié.' }
-    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!workspaceId) return { error: 'Espace de travail introuvable.' }
+    return withWorkspace(async ({ supabase, workspaceId }) => {
+        // Clean up items first (scoped through invoice ownership)
+        await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId)
 
-    // Clean up items first (scoped through invoice ownership)
-    await supabase.from('invoice_items').delete().eq('invoice_id', invoiceId)
+        // Delete invoice — workspace_id check prevents deleting another user's invoice
+        const { error } = await supabase
+            .from('invoices')
+            .delete()
+            .eq('id', invoiceId)
+            .eq('workspace_id', workspaceId) // IDOR guard
 
-    // Delete invoice — workspace_id check prevents deleting another user's invoice
-    const { error } = await supabase
-        .from('invoices')
-        .delete()
-        .eq('id', invoiceId)
-        .eq('workspace_id', workspaceId) // IDOR guard
+        if (error) return { error: error.message }
 
-    if (error) return { error: error.message }
-
-    revalidatePath('/invoices')
-    redirect('/invoices')
+        revalidatePath('/invoices')
+        redirect('/invoices')
+    })
 }
 
 // --- 4. MARK AS PAID ---
 export async function markInvoiceAsPaid(invoiceId: string) {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'Non authentifié.' }
-    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!workspaceId) return { error: 'Espace de travail introuvable.' }
+    return withWorkspace(async ({ supabase, workspaceId }) => {
+        const { error } = await supabase
+            .from('invoices')
+            .update({ status: 'paid' })
+            .eq('id', invoiceId)
+            .eq('workspace_id', workspaceId) // IDOR guard
 
-    const { error } = await supabase
-        .from('invoices')
-        .update({ status: 'paid' })
-        .eq('id', invoiceId)
-        .eq('workspace_id', workspaceId) // IDOR guard
+        if (error) return { error: error.message }
 
-    if (error) return { error: error.message }
+        revalidatePath('/invoices')
+        revalidatePath('/dashboard')
+        revalidatePath(`/invoices/${invoiceId}`)
 
-    revalidatePath('/invoices')
-    revalidatePath('/dashboard')
-    revalidatePath(`/invoices/${invoiceId}`)
-
-    return { success: true }
+        return { success: true }
+    })
 }
 
 // --- 5. UPDATE STATUS (Dropdown Action) ---
 export async function updateInvoiceStatus(invoiceId: string, newStatus: string) {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'Non authentifié.' }
-    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!workspaceId) return { error: 'Espace de travail introuvable.' }
+    return withWorkspace(async ({ supabase, workspaceId }) => {
+        const { error } = await supabase
+            .from('invoices')
+            .update({ status: newStatus })
+            .eq('id', invoiceId)
+            .eq('workspace_id', workspaceId) // IDOR guard
 
-    const { error } = await supabase
-        .from('invoices')
-        .update({ status: newStatus })
-        .eq('id', invoiceId)
-        .eq('workspace_id', workspaceId) // IDOR guard
+        if (error) return { error: "Erreur mise à jour statut" }
 
-    if (error) return { error: "Erreur mise à jour statut" }
-
-    revalidatePath('/invoices')
-    return { success: true }
+        revalidatePath('/invoices')
+        return { success: true }
+    })
 }
 
 // --- 6. SEND INVOICE BY EMAIL ---
 function formatAmt(n: number) { return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') }
 
-function buildInvoiceEmailHtml(invoice: any, items: any[], ws: any, client: any) {
-    const totalHT = items.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0)
+function buildInvoiceEmailHtml(
+    invoice: { invoice_number: string; date: string; discount?: number; notes?: string | null },
+    items: { description?: string; unit?: string | null; quantity: number; unit_price: number; total: number; tva_rate?: number | null }[],
+    ws: { name?: string; address?: string; city?: string; country?: string; email?: string; tax_id?: string; ice?: string; bank_name?: string; rib?: string } | null,
+    client: { name?: string; address?: string; city?: string; country?: string; ice?: string } | null
+) {
+    const totalHT = items.reduce((s: number, i) => s + (Number(i.total) || 0), 0)
     const discount = invoice.discount || 0
     const discountRatio = totalHT > 0 ? (1 - discount / 100) : 1
     const discountAmt = totalHT * (discount / 100)
     const netHT = totalHT - discountAmt
-    const tva = items.reduce((s: number, i: any) => {
+    const tva = items.reduce((s: number, i) => {
         const lineHT = (Number(i.total) || 0) * discountRatio
         const rate = i.tva_rate != null ? Number(i.tva_rate) : 20
         return s + lineHT * (rate / 100)
     }, 0)
     const ttc = netHT + tva
 
-    const itemRows = items.map((i: any) => `
+    const itemRows = items.map((i) => `
         <tr>
             <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#111827">${i.description || ''}</td>
             <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#6b7280;text-align:center">${i.unit || '-'}</td>
@@ -383,28 +361,27 @@ function buildInvoiceEmailHtml(invoice: any, items: any[], ws: any, client: any)
 }
 
 export async function sendInvoiceEmail(invoiceId: string, recipientEmail: string) {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, message: 'Non authentifié.' }
+    return withWorkspace(async ({ supabase, workspaceId }) => {
+        const { data: invoice } = await supabase
+            .from('invoices')
+            .select('*, invoice_items(*), client:clients(*), workspace:workspaces(*)')
+            .eq('id', invoiceId)
+            .eq('workspace_id', workspaceId) // IDOR guard
+            .single()
 
-    const { data: invoice } = await supabase
-        .from('invoices')
-        .select('*, invoice_items(*), client:clients(*), workspace:workspaces(*)')
-        .eq('id', invoiceId)
-        .single()
+        if (!invoice) return { success: false, message: 'Facture introuvable.' }
 
-    if (!invoice) return { success: false, message: 'Facture introuvable.' }
+        const items = invoice.invoice_items || []
+        const ws = invoice.workspace
+        const client = invoice.client
 
-    const items = invoice.invoice_items || []
-    const ws = invoice.workspace
-    const client = invoice.client
+        const html = buildInvoiceEmailHtml(invoice, items, ws, client)
 
-    const html = buildInvoiceEmailHtml(invoice, items, ws, client)
-
-    return sendEmail({
-        to: recipientEmail,
-        subject: `Facture N° ${invoice.invoice_number}${ws?.name ? ' — ' + ws.name : ''}`,
-        html,
+        return sendEmail({
+            to: recipientEmail,
+            subject: `Facture N° ${invoice.invoice_number}${ws?.name ? ' — ' + ws.name : ''}`,
+            html,
+        })
     })
 }
 
@@ -424,83 +401,84 @@ function nextDueDate(baseDate: Date, freq: string): Date {
     }
 }
 
-export async function generateRecurringInvoices() {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { error: 'Non authentifié', generated: 0 }
-
-    let wsId: string
-    try {
-        wsId = await getOrCreateWorkspace(supabase, user.id)
-    } catch (e: any) {
-        return { error: e.message, generated: 0 }
-    }
-
-    const { data: templates } = await supabase
-        .from('invoices')
-        .select('*, invoice_items(*)')
-        .eq('workspace_id', wsId)
-        .eq('is_recurring', true)
-
-    if (!templates?.length) return { success: true, generated: 0, message: 'Aucune facture récurrente configurée.' }
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    let generated = 0
-
-    for (const tpl of templates) {
-        const baseDate = new Date(tpl.last_generated_at || tpl.date)
-        const due = nextDueDate(baseDate, tpl.frequency || 'monthly')
-        if (due > today) continue
-
-        const newDate = due.toISOString().split('T')[0]
-        const newNumber = `${tpl.invoice_number}-R-${newDate}`
-
-        const { data: newInvoice, error: invErr } = await supabase
+export async function generateRecurringInvoices(): Promise<{ success: boolean; generated: number; message: string; error?: string }> {
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        const { data: templates } = await supabase
             .from('invoices')
-            .insert({
-                workspace_id: wsId,
-                client_id: tpl.client_id,
-                invoice_number: newNumber,
-                date: newDate,
-                issue_date: newDate,
-                status: 'draft',
-                discount: tpl.discount || 0,
-                total_ht: tpl.total_ht,
-                total_tva: tpl.total_tva,
-                total_ttc: tpl.total_ttc,
-                notes: tpl.notes,
-                is_recurring: false,
-            })
-            .select()
-            .single()
+            .select('*, invoice_items(*)')
+            .eq('workspace_id', workspaceId)
+            .eq('is_recurring', true)
 
-        if (invErr || !newInvoice) continue
+        if (!templates?.length) return { success: true, generated: 0, message: 'Aucune facture récurrente configurée.' }
 
-        const items = tpl.invoice_items || []
-        if (items.length > 0) {
-            await supabase.from('invoice_items').insert(
-                items.map((i: any) => ({
-                    invoice_id: newInvoice.id,
-                    description: i.description,
-                    unit: i.unit,
-                    quantity: i.quantity,
-                    unit_price: i.unit_price,
-                    total: i.total,
-                }))
-            )
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        let generated = 0
+
+        for (const tpl of templates) {
+            const baseDate = new Date(tpl.last_generated_at || tpl.date)
+            const due = nextDueDate(baseDate, tpl.frequency || 'monthly')
+            if (due > today) continue
+
+            const newDate = due.toISOString().split('T')[0]
+            const newNumber = `${tpl.invoice_number}-R-${newDate}`
+
+            const { data: newInvoice, error: invErr } = await supabase
+                .from('invoices')
+                .insert({
+                    workspace_id: workspaceId,
+                    client_id: tpl.client_id,
+                    invoice_number: newNumber,
+                    date: newDate,
+                    issue_date: newDate,
+                    status: 'draft',
+                    discount: tpl.discount || 0,
+                    total_ht: tpl.total_ht,
+                    total_tva: tpl.total_tva,
+                    total_ttc: tpl.total_ttc,
+                    notes: tpl.notes,
+                    is_recurring: false,
+                })
+                .select()
+                .single()
+
+            if (invErr || !newInvoice) continue
+
+            const items = tpl.invoice_items || []
+            if (items.length > 0) {
+                await supabase.from('invoice_items').insert(
+                    items.map((i: { description: string; unit?: string | null; quantity: number; unit_price: number; total: number }) => ({
+                        invoice_id: newInvoice.id,
+                        description: i.description,
+                        unit: i.unit,
+                        quantity: i.quantity,
+                        unit_price: i.unit_price,
+                        total: i.total,
+                    }))
+                )
+            }
+
+            await supabase.from('invoices').update({ last_generated_at: newDate }).eq('id', tpl.id)
+            generated++
         }
 
-        await supabase.from('invoices').update({ last_generated_at: newDate }).eq('id', tpl.id)
-        generated++
-    }
+        revalidatePath('/invoices')
+        return { success: true, generated, message: `${generated} facture(s) générée(s).` }
+    })
 
-    revalidatePath('/invoices')
-    return { success: true, generated, message: `${generated} facture(s) générée(s).` }
+    if ('error' in result && !('success' in result)) {
+        return { success: false, generated: 0, message: result.error, error: result.error }
+    }
+    return result as { success: boolean; generated: number; message: string; error?: string }
 }
 
 // --- 8. SEND OVERDUE REMINDERS ---
-function buildReminderEmailHtml(invoice: any, ws: any, client: any, daysOverdue: number) {
+function buildReminderEmailHtml(
+    invoice: { invoice_number: string; due_date?: string | null; total_ttc: number },
+    ws: { name?: string; address?: string; city?: string; tax_id?: string; ice?: string } | null,
+    client: { name?: string } | null,
+    daysOverdue: number
+) {
     const ttc = Number(invoice.total_ttc) || 0
     const dueDateStr = invoice.due_date
         ? new Date(invoice.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -558,115 +536,119 @@ export async function sendOverdueReminders(): Promise<{
     errors: number
     message: string
 }> {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { sent: 0, skipped: 0, errors: 0, message: 'Non authentifié.' }
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        const { data: workspace } = await supabase
+            .from('workspaces')
+            .select('*')
+            .eq('id', workspaceId)
+            .single()
+        if (!workspace) return { sent: 0, skipped: 0, errors: 0, message: 'Espace de travail introuvable.' }
 
-    const wsId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!wsId) return { sent: 0, skipped: 0, errors: 0, message: 'Espace de travail introuvable.' }
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
 
-    const { data: workspace } = await supabase
-        .from('workspaces')
-        .select('*')
-        .eq('id', wsId)
-        .single()
-    if (!workspace) return { sent: 0, skipped: 0, errors: 0, message: 'Espace de travail introuvable.' }
+        const { data: overdueInvoices } = await supabase
+            .from('invoices')
+            .select('*, client:clients(*)')
+            .eq('workspace_id', workspaceId)
+            .in('status', ['sent', 'partial', 'pending', 'en_attente'])
+            .not('due_date', 'is', null)
+            .lt('due_date', today.toISOString().split('T')[0])
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+        if (!overdueInvoices?.length) {
+            return { sent: 0, skipped: 0, errors: 0, message: 'Aucune facture en retard de paiement.' }
+        }
 
-    const { data: overdueInvoices } = await supabase
-        .from('invoices')
-        .select('*, client:clients(*)')
-        .eq('workspace_id', wsId)
-        .in('status', ['sent', 'partial', 'pending', 'en_attente'])
-        .not('due_date', 'is', null)
-        .lt('due_date', today.toISOString().split('T')[0])
+        let sent = 0, skipped = 0, errors = 0
 
-    if (!overdueInvoices?.length) {
-        return { sent: 0, skipped: 0, errors: 0, message: 'Aucune facture en retard de paiement.' }
+        for (const invoice of overdueInvoices) {
+            const clientEmail = invoice.client?.email
+            if (!clientEmail) { skipped++; continue }
+
+            const dueDate = new Date(invoice.due_date)
+            const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / 86400000)
+            const html = buildReminderEmailHtml(invoice, workspace, invoice.client, daysOverdue)
+
+            const res = await sendEmail({
+                to: clientEmail,
+                subject: `Rappel de paiement — Facture N° ${invoice.invoice_number}`,
+                html,
+            })
+
+            if (res.success) sent++
+            else errors++
+        }
+
+        revalidatePath('/invoices')
+        const parts = []
+        if (sent > 0) parts.push(`${sent} rappel(s) envoyé(s)`)
+        if (skipped > 0) parts.push(`${skipped} ignoré(s) (pas d'email)`)
+        if (errors > 0) parts.push(`${errors} échec(s)`)
+        return { sent, skipped, errors, message: parts.join(', ') || 'Aucun rappel envoyé.' }
+    })
+
+    if ('error' in result && typeof result.error === 'string' && !('sent' in result)) {
+        return { sent: 0, skipped: 0, errors: 0, message: result.error }
     }
-
-    let sent = 0, skipped = 0, errors = 0
-
-    for (const invoice of overdueInvoices) {
-        const clientEmail = invoice.client?.email
-        if (!clientEmail) { skipped++; continue }
-
-        const dueDate = new Date(invoice.due_date)
-        const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / 86400000)
-        const html = buildReminderEmailHtml(invoice, workspace, invoice.client, daysOverdue)
-
-        const result = await sendEmail({
-            to: clientEmail,
-            subject: `Rappel de paiement — Facture N° ${invoice.invoice_number}`,
-            html,
-        })
-
-        if (result.success) sent++
-        else errors++
-    }
-
-    revalidatePath('/invoices')
-    const parts = []
-    if (sent > 0) parts.push(`${sent} rappel(s) envoyé(s)`)
-    if (skipped > 0) parts.push(`${skipped} ignoré(s) (pas d'email)`)
-    if (errors > 0) parts.push(`${errors} échec(s)`)
-    return { sent, skipped, errors, message: parts.join(', ') || 'Aucun rappel envoyé.' }
+    return result as { sent: number; skipped: number; errors: number; message: string }
 }
 
 export async function getOverdueInvoicesCount(): Promise<number> {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return 0
-    const wsId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!wsId) return 0
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const { count } = await supabase
-        .from('invoices')
-        .select('id', { count: 'exact', head: true })
-        .eq('workspace_id', wsId)
-        .in('status', ['sent', 'partial', 'pending', 'en_attente'])
-        .not('due_date', 'is', null)
-        .lt('due_date', today.toISOString().split('T')[0])
-    return count || 0
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const { count } = await supabase
+            .from('invoices')
+            .select('id', { count: 'exact', head: true })
+            .eq('workspace_id', workspaceId)
+            .in('status', ['sent', 'partial', 'pending', 'en_attente'])
+            .not('due_date', 'is', null)
+            .lt('due_date', today.toISOString().split('T')[0])
+        return { count: count || 0 }
+    })
+
+    if ('error' in result) return 0
+    return result.count
 }
 
 export async function bulkMarkInvoicesPaid(ids: string[]): Promise<{ updated: number; error?: string }> {
     if (!ids.length) return { updated: 0 }
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { updated: 0, error: 'Non authentifié.' }
-    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!workspaceId) return { updated: 0, error: 'Espace de travail introuvable.' }
-    const { error, count } = await supabase
-        .from('invoices')
-        .update({ status: 'paid' }, { count: 'exact' })
-        .in('id', ids)
-        .eq('workspace_id', workspaceId) // IDOR guard
-    if (error) return { updated: 0, error: error.message }
-    revalidatePath('/invoices')
-    revalidatePath('/dashboard')
-    return { updated: count || ids.length }
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        const { error, count } = await supabase
+            .from('invoices')
+            .update({ status: 'paid' }, { count: 'exact' })
+            .in('id', ids)
+            .eq('workspace_id', workspaceId) // IDOR guard
+        if (error) return { updated: 0, error: error.message }
+        revalidatePath('/invoices')
+        revalidatePath('/dashboard')
+        return { updated: count || ids.length }
+    })
+
+    if ('error' in result && !('updated' in result)) {
+        return { updated: 0, error: result.error }
+    }
+    return result as { updated: number; error?: string }
 }
 
 export async function bulkDeleteInvoices(ids: string[]): Promise<{ deleted: number; error?: string }> {
     if (!ids.length) return { deleted: 0 }
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { deleted: 0, error: 'Non authentifié.' }
-    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!workspaceId) return { deleted: 0, error: 'Espace de travail introuvable.' }
-    const { error, count } = await supabase
-        .from('invoices')
-        .delete({ count: 'exact' })
-        .in('id', ids)
-        .eq('workspace_id', workspaceId) // IDOR guard
-    if (error) return { deleted: 0, error: error.message }
-    revalidatePath('/invoices')
-    revalidatePath('/dashboard')
-    return { deleted: count || ids.length }
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        const { error, count } = await supabase
+            .from('invoices')
+            .delete({ count: 'exact' })
+            .in('id', ids)
+            .eq('workspace_id', workspaceId) // IDOR guard
+        if (error) return { deleted: 0, error: error.message }
+        revalidatePath('/invoices')
+        revalidatePath('/dashboard')
+        return { deleted: count || ids.length }
+    })
+
+    if ('error' in result && !('deleted' in result)) {
+        return { deleted: 0, error: result.error }
+    }
+    return result as { deleted: number; error?: string }
 }
 
 // ─── RECURRING MANAGEMENT ───────────────────────────────────────────────────
@@ -702,165 +684,155 @@ function computeNextDue(baseDate: Date, freq: string): Date {
 }
 
 export async function getRecurringTemplates(): Promise<RecurringTemplate[]> {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return []
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        const { data: templates } = await supabase
+            .from('invoices')
+            .select('*, client:clients(name)')
+            .eq('workspace_id', workspaceId)
+            .eq('is_recurring', true)
+            .order('date', { ascending: false })
 
-    const wsId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!wsId) return []
+        const { data: paused } = await supabase
+            .from('invoices')
+            .select('*, client:clients(name)')
+            .eq('workspace_id', workspaceId)
+            .eq('is_recurring', false)
+            .not('frequency', 'is', null)
+            .neq('frequency', '')
+            .order('date', { ascending: false })
 
-    const { data: templates } = await supabase
-        .from('invoices')
-        .select('*, client:clients(name)')
-        .eq('workspace_id', wsId)
-        .eq('is_recurring', true)
-        .order('date', { ascending: false })
+        const all = [
+            ...(templates || []).map((t: { id: string; invoice_number: string; client_id: string | null; client: { name: string } | null; frequency: string; last_generated_at: string | null; date: string; total_ttc: number; notes: string | null }) => ({ ...t, paused: false })),
+            ...(paused || []).map((t: { id: string; invoice_number: string; client_id: string | null; client: { name: string } | null; frequency: string; last_generated_at: string | null; date: string; total_ttc: number; notes: string | null }) => ({ ...t, paused: true })),
+        ]
 
-    const { data: paused } = await supabase
-        .from('invoices')
-        .select('*, client:clients(name)')
-        .eq('workspace_id', wsId)
-        .eq('is_recurring', false)
-        .not('frequency', 'is', null)
-        .neq('frequency', '')
-        .order('date', { ascending: false })
-
-    const all = [
-        ...(templates || []).map((t: any) => ({ ...t, paused: false })),
-        ...(paused || []).map((t: any) => ({ ...t, paused: true })),
-    ]
-
-    return all.map((tpl: any) => {
-        const baseDate = new Date(tpl.last_generated_at || tpl.date)
-        const nextDue = computeNextDue(baseDate, tpl.frequency || 'monthly')
-        return {
-            id: tpl.id,
-            invoice_number: tpl.invoice_number || '',
-            client_id: tpl.client_id,
-            clientName: tpl.client?.name || 'Client inconnu',
-            frequency: tpl.frequency || 'monthly',
-            last_generated_at: tpl.last_generated_at || null,
-            date: tpl.date,
-            total_ttc: Number(tpl.total_ttc) || 0,
-            notes: tpl.notes || null,
-            generatedCount: 0,
-            nextDueDate: nextDue.toISOString().split('T')[0],
-            paused: tpl.paused,
-        }
+        return all.map((tpl) => {
+            const baseDate = new Date(tpl.last_generated_at || tpl.date)
+            const nextDue = computeNextDue(baseDate, tpl.frequency || 'monthly')
+            return {
+                id: tpl.id,
+                invoice_number: tpl.invoice_number || '',
+                client_id: tpl.client_id,
+                clientName: tpl.client?.name || 'Client inconnu',
+                frequency: tpl.frequency || 'monthly',
+                last_generated_at: tpl.last_generated_at || null,
+                date: tpl.date,
+                total_ttc: Number(tpl.total_ttc) || 0,
+                notes: tpl.notes || null,
+                generatedCount: 0,
+                nextDueDate: nextDue.toISOString().split('T')[0],
+                paused: tpl.paused,
+            }
+        })
     })
+
+    if ('error' in result) return []
+    return result as RecurringTemplate[]
 }
 
 export async function pauseRecurringTemplate(id: string): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'Non authentifié.' }
-    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!workspaceId) return { success: false, error: 'Espace de travail introuvable.' }
-    const { error } = await supabase.from('invoices').update({ is_recurring: false }).eq('id', id).eq('workspace_id', workspaceId)
-    if (error) return { success: false, error: error.message }
-    revalidatePath('/invoices/recurring')
-    return { success: true }
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        const { error } = await supabase.from('invoices').update({ is_recurring: false }).eq('id', id).eq('workspace_id', workspaceId)
+        if (error) return { success: false, error: error.message }
+        revalidatePath('/invoices/recurring')
+        return { success: true }
+    })
+    if ('error' in result && !('success' in result)) return { success: false, error: result.error }
+    return result as { success: boolean; error?: string }
 }
 
 export async function resumeRecurringTemplate(id: string): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'Non authentifié.' }
-    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!workspaceId) return { success: false, error: 'Espace de travail introuvable.' }
-    const { error } = await supabase.from('invoices').update({ is_recurring: true }).eq('id', id).eq('workspace_id', workspaceId)
-    if (error) return { success: false, error: error.message }
-    revalidatePath('/invoices/recurring')
-    return { success: true }
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        const { error } = await supabase.from('invoices').update({ is_recurring: true }).eq('id', id).eq('workspace_id', workspaceId)
+        if (error) return { success: false, error: error.message }
+        revalidatePath('/invoices/recurring')
+        return { success: true }
+    })
+    if ('error' in result && !('success' in result)) return { success: false, error: result.error }
+    return result as { success: boolean; error?: string }
 }
 
 export async function updateRecurringFrequency(id: string, frequency: string): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'Non authentifié.' }
-    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!workspaceId) return { success: false, error: 'Espace de travail introuvable.' }
-    const { error } = await supabase.from('invoices').update({ frequency }).eq('id', id).eq('workspace_id', workspaceId)
-    if (error) return { success: false, error: error.message }
-    revalidatePath('/invoices/recurring')
-    return { success: true }
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        const { error } = await supabase.from('invoices').update({ frequency }).eq('id', id).eq('workspace_id', workspaceId)
+        if (error) return { success: false, error: error.message }
+        revalidatePath('/invoices/recurring')
+        return { success: true }
+    })
+    if ('error' in result && !('success' in result)) return { success: false, error: result.error }
+    return result as { success: boolean; error?: string }
 }
 
 export async function generateSingleTemplate(id: string): Promise<{ success: boolean; invoiceId?: string; error?: string }> {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'Non authentifie' }
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        const { data: tpl } = await supabase
+            .from('invoices')
+            .select('*, invoice_items(*)')
+            .eq('id', id)
+            .eq('workspace_id', workspaceId)
+            .single()
 
-    let wsId2: string
-    try {
-        wsId2 = await getOrCreateWorkspace(supabase, user.id)
-    } catch (e: any) {
-        return { success: false, error: e.message }
+        if (!tpl) return { success: false, error: 'Modele introuvable' }
+
+        const today = new Date()
+        const newDate = today.toISOString().split('T')[0]
+        const newNumber = `${tpl.invoice_number}-R-${newDate}`
+
+        const { data: newInvoice, error: invErr } = await supabase
+            .from('invoices')
+            .insert({
+                workspace_id: workspaceId,
+                client_id: tpl.client_id,
+                invoice_number: newNumber,
+                date: newDate,
+                issue_date: newDate,
+                status: 'draft',
+                discount: tpl.discount || 0,
+                total_ht: tpl.total_ht,
+                total_tva: tpl.total_tva,
+                total_ttc: tpl.total_ttc,
+                notes: tpl.notes,
+                is_recurring: false,
+            })
+            .select()
+            .single()
+
+        if (invErr || !newInvoice) return { success: false, error: invErr?.message || 'Erreur creation' }
+
+        const items = tpl.invoice_items || []
+        if (items.length > 0) {
+            await supabase.from('invoice_items').insert(
+                items.map((i: { description: string; unit?: string | null; quantity: number; unit_price: number; total: number }) => ({
+                    invoice_id: newInvoice.id,
+                    description: i.description,
+                    unit: i.unit,
+                    quantity: i.quantity,
+                    unit_price: i.unit_price,
+                    total: i.total,
+                }))
+            )
+        }
+
+        await supabase.from('invoices').update({ last_generated_at: newDate }).eq('id', id).eq('workspace_id', workspaceId)
+        revalidatePath('/invoices')
+        revalidatePath('/invoices/recurring')
+        return { success: true, invoiceId: newInvoice.id }
+    })
+
+    if ('error' in result && typeof result.error === 'string' && !('success' in result)) {
+        return { success: false, error: result.error }
     }
-
-    const { data: tpl } = await supabase
-        .from('invoices')
-        .select('*, invoice_items(*)')
-        .eq('id', id)
-        .eq('workspace_id', wsId2)
-        .single()
-
-    if (!tpl) return { success: false, error: 'Modele introuvable' }
-
-    const today = new Date()
-    const newDate = today.toISOString().split('T')[0]
-    const newNumber = `${tpl.invoice_number}-R-${newDate}`
-
-    const { data: newInvoice, error: invErr } = await supabase
-        .from('invoices')
-        .insert({
-            workspace_id: wsId2,
-            client_id: tpl.client_id,
-            invoice_number: newNumber,
-            date: newDate,
-            issue_date: newDate,
-            status: 'draft',
-            discount: tpl.discount || 0,
-            total_ht: tpl.total_ht,
-            total_tva: tpl.total_tva,
-            total_ttc: tpl.total_ttc,
-            notes: tpl.notes,
-            is_recurring: false,
-        })
-        .select()
-        .single()
-
-    if (invErr || !newInvoice) return { success: false, error: invErr?.message || 'Erreur creation' }
-
-    const items = tpl.invoice_items || []
-    if (items.length > 0) {
-        await supabase.from('invoice_items').insert(
-            items.map((i: any) => ({
-                invoice_id: newInvoice.id,
-                description: i.description,
-                unit: i.unit,
-                quantity: i.quantity,
-                unit_price: i.unit_price,
-                total: i.total,
-            }))
-        )
-    }
-
-    await supabase.from('invoices').update({ last_generated_at: newDate }).eq('id', id).eq('workspace_id', wsId2)
-    revalidatePath('/invoices')
-    revalidatePath('/invoices/recurring')
-    return { success: true, invoiceId: newInvoice.id }
+    return result as { success: boolean; invoiceId?: string; error?: string }
 }
 
 export async function deleteRecurringTemplate(id: string): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'Non authentifié.' }
-    const workspaceId = await getOrCreateWorkspace(supabase, user.id).catch(() => null)
-    if (!workspaceId) return { success: false, error: 'Espace de travail introuvable.' }
-    await supabase.from('invoice_items').delete().eq('invoice_id', id)
-    const { error } = await supabase.from('invoices').delete().eq('id', id).eq('workspace_id', workspaceId)
-    if (error) return { success: false, error: error.message }
-    revalidatePath('/invoices/recurring')
-    return { success: true }
+    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+        await supabase.from('invoice_items').delete().eq('invoice_id', id)
+        const { error } = await supabase.from('invoices').delete().eq('id', id).eq('workspace_id', workspaceId)
+        if (error) return { success: false, error: error.message }
+        revalidatePath('/invoices/recurring')
+        return { success: true }
+    })
+    if ('error' in result && !('success' in result)) return { success: false, error: result.error }
+    return result as { success: boolean; error?: string }
 }

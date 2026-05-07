@@ -4,7 +4,7 @@ import React, { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import PrintButton from '@/components/invoices/PrintButton'
-import { convertQuoteToInvoice } from '@/app/actions/convert'
+import { convertQuoteToDocuments } from '@/app/actions/convert'
 import ConfirmationModal from '@/components/ui/ConfirmationModal'
 import DocumentActions from '@/components/ui/DocumentActions'
 import DocumentActionBar from '@/components/ui/DocumentActionBar'
@@ -74,7 +74,7 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
     const confirmConversion = () => {
         startTransition(async () => {
             try {
-                const response = await convertQuoteToInvoice(document.id)
+                const response = await convertQuoteToDocuments(document.id)
                 if (response.success && response.invoiceId) {
                     setIsModalOpen(false)
                     router.push(`/invoices/${response.invoiceId}`)
