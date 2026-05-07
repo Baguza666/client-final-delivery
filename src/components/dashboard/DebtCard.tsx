@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { payDebtInstallment } from '@/app/actions/finance';
+import { payDebtInstallment } from '@/app/actions/financeActions';
 
 export default function DebtCard({ debt, workspaceId }: { debt: any, workspaceId: string }) {
     const [loading, setLoading] = useState(false);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { addExpense, createDebt } from '@/app/actions/finance';
+import { addExpense, createDebt } from '@/app/actions/financeActions';
 
 export default function FinanceControls({ workspaceId }: { workspaceId: string }) {
     const [isOpen, setIsOpen] = useState(false);
