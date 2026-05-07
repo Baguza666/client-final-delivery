@@ -1,3 +1,14 @@
+export interface QuoteLineItem {
+    id: string
+    quote_id: string
+    description: string
+    quantity: number
+    unit_price: number
+    tva_rate: number | null
+    total: number
+    unit?: string | null
+}
+
 export interface DocumentLineItem {
     line_uid: string
     description: string

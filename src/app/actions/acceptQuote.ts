@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { createHash } from 'crypto'
 import { getOrCreateWorkspace } from '@/lib/workspace'
-import type { PoLineItem, DnLineItem } from '@/lib/document-types'
+import type { PoLineItem, DnLineItem, QuoteLineItem } from '@/lib/document-types'
 
 async function createClient() {
     const cookieStore = await cookies()
@@ -70,7 +70,7 @@ export async function acceptQuote(quoteId: string) {
     }
 
     // Generate PO Items
-    const poItems: PoLineItem[] = quote.quote_items.map((item: any) => ({
+    const poItems: PoLineItem[] = (quote.quote_items as QuoteLineItem[]).map((item) => ({
         purchase_order_id: po.id,
         line_uid: item.id,
         description: item.description,
@@ -79,7 +79,8 @@ export async function acceptQuote(quoteId: string) {
         tva_rate: item.tva_rate != null ? Number(item.tva_rate) : 20,
         total: item.total
     }))
-    await supabase.from('purchase_order_items').insert(poItems)
+    const { error: poItemsError } = await supabase.from('purchase_order_items').insert(poItems)
+    if (poItemsError) return { success: false, message: `Erreur lignes BC: ${poItemsError.message}` }
 
     // Generate DN
     const { data: dn } = await supabase.from('delivery_notes').insert({
@@ -99,7 +100,8 @@ export async function acceptQuote(quoteId: string) {
         description: item.description,
         quantity: item.quantity,
     }))
-    await supabase.from('delivery_note_items').insert(dnItems)
+    const { error: dnItemsError } = await supabase.from('delivery_note_items').insert(dnItems)
+    if (dnItemsError) return { success: false, message: `Erreur lignes BL: ${dnItemsError.message}` }
 
     // Generate Invoice
     const { data: invoice } = await supabase.from('invoices').insert({
