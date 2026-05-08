@@ -73,6 +73,8 @@ export async function createInvoice(formData: FormData) {
             is_recurring,
             frequency: is_recurring ? frequency : null,
             currency,
+            currency_code: currency || 'MAD',
+            document_type_code: '380',
             exchange_rate,
             owner_id: user.id,
         }
@@ -93,22 +95,31 @@ export async function createInvoice(formData: FormData) {
                     quantity: unknown
                     unit_price: unknown
                     tva_rate: unknown
+                    tva_exonere?: unknown
                     original_price?: unknown
                     base_currency?: unknown
                     rate_snapshot?: unknown
-                }) => ({
-                    invoice_id: invoice.id,
-                    description: item.description,
-                    unit: item.unit || null,
-                    quantity: Number(item.quantity) || 0,
-                    unit_price: Number(item.unit_price) || 0,
-                    tva_rate: item.tva_rate != null ? Number(item.tva_rate) : 20,
-                    total: (Number(item.quantity) || 0) * (Number(item.unit_price) || 0),
-                    // Conversion metadata — null for manually typed lines
-                    original_price: item.original_price != null ? Number(item.original_price) : null,
-                    base_currency: item.base_currency ?? null,
-                    rate_snapshot: item.rate_snapshot != null ? Number(item.rate_snapshot) : null,
-                }))
+                }) => {
+                    const qty = Number(item.quantity) || 0
+                    const price = Number(item.unit_price) || 0
+                    const exonere = Boolean(item.tva_exonere)
+                    const rate = exonere ? 0 : (item.tva_rate != null ? Number(item.tva_rate) : 20)
+                    return {
+                        invoice_id: invoice.id,
+                        description: item.description,
+                        unit: item.unit || null,
+                        quantity: qty,
+                        unit_price: price,
+                        tva_rate: rate,
+                        tva_exonere: exonere,
+                        vat_amount: Math.round(qty * price * rate) / 100,
+                        total: qty * price,
+                        // Conversion metadata — null for manually typed lines
+                        original_price: item.original_price != null ? Number(item.original_price) : null,
+                        base_currency: item.base_currency ?? null,
+                        rate_snapshot: item.rate_snapshot != null ? Number(item.rate_snapshot) : null,
+                    }
+                })
             )
             if (itemsError) {
                 // Roll back the orphaned invoice header so data stays consistent

@@ -10,6 +10,8 @@ export interface ClientFormValues {
     city: string
     address: string
     ice: string
+    if?: string
+    country_code?: string
     type?: 'client' | 'supplier' | 'both'
 }
 
@@ -22,7 +24,7 @@ interface ClientFormModalProps {
     onSubmit: (values: ClientFormValues) => void
 }
 
-const blank: ClientFormValues = { name: '', email: '', phone: '', city: '', address: '', ice: '', type: 'client' }
+const blank: ClientFormValues = { name: '', email: '', phone: '', city: '', address: '', ice: '', if: '', country_code: 'MA', type: 'client' }
 
 export default function ClientFormModal({ isOpen, mode, initial, submitting, onClose, onSubmit }: ClientFormModalProps) {
     const [values, setValues] = useState<ClientFormValues>({ ...blank, ...initial })
@@ -164,6 +166,38 @@ export default function ClientFormModal({ isOpen, mode, initial, submitting, onC
                                 className={inputCls}
                                 placeholder="15 chiffres"
                             />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className={labelCls}>IF (Identifiant Fiscal)</label>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={values.if ?? ''}
+                                onChange={(e) => set('if', e.target.value)}
+                                className={inputCls}
+                                placeholder="Optionnel"
+                            />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Pays</label>
+                            <select
+                                value={values.country_code ?? 'MA'}
+                                onChange={(e) => set('country_code', e.target.value)}
+                                className={inputCls}
+                            >
+                                <option value="MA">Maroc (MA)</option>
+                                <option value="FR">France (FR)</option>
+                                <option value="ES">Espagne (ES)</option>
+                                <option value="DE">Allemagne (DE)</option>
+                                <option value="GB">Royaume-Uni (GB)</option>
+                                <option value="US">États-Unis (US)</option>
+                                <option value="CA">Canada (CA)</option>
+                                <option value="OTHER">Autre</option>
+                            </select>
                         </div>
                     </div>
 

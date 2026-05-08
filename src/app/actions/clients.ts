@@ -26,6 +26,15 @@ export async function createNewClient(formData: FormData): Promise<ClientActionR
             return { success: false, message: 'Le nom est requis.' }
         }
 
+        const ice = ((formData.get('ice') as string) || '').trim() || null
+        const ifValue = ((formData.get('if') as string) || '').trim() || null
+        if (ice && !/^\d{15}$/.test(ice)) {
+            return { success: false, message: 'ICE invalide (15 chiffres).' }
+        }
+        if (ifValue && !/^\d+$/.test(ifValue)) {
+            return { success: false, message: 'IF invalide (chiffres uniquement).' }
+        }
+
         const newClient = {
             workspace_id: workspaceId,
             name,
@@ -33,7 +42,9 @@ export async function createNewClient(formData: FormData): Promise<ClientActionR
             phone: ((formData.get('phone') as string) || '').trim() || null,
             address: ((formData.get('address') as string) || '').trim() || null,
             city: ((formData.get('city') as string) || '').trim() || null,
-            ice: ((formData.get('ice') as string) || '').trim() || null,
+            ice,
+            if: ifValue,
+            country_code: ((formData.get('country_code') as string) || 'MA').trim() || 'MA',
             type: (formData.get('type') as string) || 'client',
         }
 
@@ -55,13 +66,24 @@ export async function updateClient(formData: FormData): Promise<ClientActionResu
         const id = formData.get('id') as string
         if (!id) return { success: false, message: 'ID manquant.' }
 
+        const ice = ((formData.get('ice') as string) || '').trim() || null
+        const ifValue = ((formData.get('if') as string) || '').trim() || null
+        if (ice && !/^\d{15}$/.test(ice)) {
+            return { success: false, message: 'ICE invalide (15 chiffres).' }
+        }
+        if (ifValue && !/^\d+$/.test(ifValue)) {
+            return { success: false, message: 'IF invalide (chiffres uniquement).' }
+        }
+
         const updates: Record<string, string | null> = {
             name: ((formData.get('name') as string) || '').trim(),
             email: ((formData.get('email') as string) || '').trim() || null,
             phone: ((formData.get('phone') as string) || '').trim() || null,
             address: ((formData.get('address') as string) || '').trim() || null,
             city: ((formData.get('city') as string) || '').trim() || null,
-            ice: ((formData.get('ice') as string) || '').trim() || null,
+            ice,
+            if: ifValue,
+            country_code: ((formData.get('country_code') as string) || 'MA').trim() || 'MA',
         }
         const type = formData.get('type') as string
         if (type) updates.type = type
