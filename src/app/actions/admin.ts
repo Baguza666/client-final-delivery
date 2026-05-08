@@ -4,6 +4,10 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
+const COMING_SOON: { error: string } = {
+    error: 'Les invitations d\'équipe arrivent au Q3 2026. Cette fonctionnalité est temporairement désactivée.',
+}
+
 export async function updateUserRole(userId: string, newRole: string) {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -41,47 +45,14 @@ export async function updateUserRole(userId: string, newRole: string) {
     return { success: true };
 }
 
-export async function inviteTeamMember(email: string, role: string) {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { get: (name) => cookieStore.get(name)?.value } }
-    );
+// Multi-user invitations are deferred to Q3 2026. The implementations below
+// remain in git history; the function bodies are stubbed to return a structured
+// "coming soon" error so existing callers fail gracefully.
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Non autorise.' };
-
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    if (profile?.role !== 'admin') return { error: 'Seul un admin peut inviter.' };
-
-    const { error } = await supabase.from('team_invitations').upsert(
-        { email: email.toLowerCase().trim(), role, invited_by: user.id, status: 'pending' },
-        { onConflict: 'email' }
-    );
-    if (error) return { error: error.message };
-
-    revalidatePath('/settings');
-    return { success: true };
+export async function inviteTeamMember(_email: string, _role: string) {
+    return COMING_SOON
 }
 
-export async function revokeInvitation(id: string) {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { get: (name) => cookieStore.get(name)?.value } }
-    );
-
-    // Auth + admin role check before any deletion
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Non authentifié.' };
-
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    if (profile?.role !== 'admin') return { error: 'Seul un admin peut révoquer une invitation.' };
-
-    // Scope deletion to invitations sent by this admin to prevent IDOR
-    await supabase.from('team_invitations').delete().eq('id', id).eq('invited_by', user.id);
-    revalidatePath('/settings');
-    return { success: true };
+export async function revokeInvitation(_id: string) {
+    return COMING_SOON
 }

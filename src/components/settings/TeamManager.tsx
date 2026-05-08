@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { updateUserRole, inviteTeamMember, revokeInvitation } from '@/app/actions/admin'
+import { updateUserRole, revokeInvitation } from '@/app/actions/admin'
 import { formatDate } from '@/utils/format'
 
 interface Profile {
@@ -29,40 +29,12 @@ export default function TeamManager({
     invitations?: Invitation[]
 }) {
     const [loadingId, setLoadingId] = useState<string | null>(null)
-    const [showInvite, setShowInvite] = useState(false)
-    const [inviteEmail, setInviteEmail] = useState('')
-    const [inviteRole, setInviteRole] = useState('editor')
-    const [inviteLoading, setInviteLoading] = useState(false)
-    const [inviteMsg, setInviteMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
     const [localInvitations, setLocalInvitations] = useState<Invitation[]>(invitations)
 
     const handleRoleChange = async (userId: string, newRole: string) => {
         setLoadingId(userId)
         await updateUserRole(userId, newRole)
         setLoadingId(null)
-    }
-
-    const handleInvite = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!inviteEmail.trim()) return
-        setInviteLoading(true)
-        setInviteMsg(null)
-        const res = await inviteTeamMember(inviteEmail.trim(), inviteRole)
-        setInviteLoading(false)
-        if (res.error) {
-            setInviteMsg({ type: 'err', text: res.error })
-        } else {
-            setInviteMsg({ type: 'ok', text: `Invitation enregistree pour ${inviteEmail.trim()}. Demandez-leur de s'inscrire avec cet email.` })
-            setLocalInvitations(prev => [...prev.filter(i => i.email !== inviteEmail.toLowerCase().trim()), {
-                id: crypto.randomUUID(),
-                email: inviteEmail.trim().toLowerCase(),
-                role: inviteRole,
-                created_at: new Date().toISOString(),
-                status: 'pending',
-            }])
-            setInviteEmail('')
-            setShowInvite(false)
-        }
     }
 
     const handleRevoke = async (id: string) => {
@@ -74,6 +46,17 @@ export default function TeamManager({
 
     return (
         <div className="space-y-4">
+            {/* Coming-soon banner */}
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start gap-3">
+                <span className="material-symbols-outlined text-amber-400 mt-0.5">construction</span>
+                <div>
+                    <p className="text-sm font-semibold text-amber-200">Invitations d&apos;équipe — bientôt disponible</p>
+                    <p className="text-xs text-amber-200/70 mt-1">
+                        Le multi-utilisateurs arrive au Q3 2026. Vous pouvez consulter les rôles existants ci-dessous, mais les nouvelles invitations sont temporairement désactivées.
+                    </p>
+                </div>
+            </div>
+
             {/* Active members */}
             <div className="bg-white/[0.025] border border-white/[0.06] rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-5">
@@ -82,56 +65,14 @@ export default function TeamManager({
                     </span>
                     <button
                         type="button"
-                        onClick={() => { setShowInvite(v => !v); setInviteMsg(null) }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-all"
+                        disabled
+                        title="Disponible au Q3 2026"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 border border-white/10 text-white/30 cursor-not-allowed"
                     >
-                        <span className="material-symbols-outlined text-[14px]">person_add</span>
-                        Inviter
+                        <span className="material-symbols-outlined text-[14px]">lock</span>
+                        Inviter (Q3 2026)
                     </button>
                 </div>
-
-                {/* Invite form */}
-                {showInvite && (
-                    <form onSubmit={handleInvite} className="mb-5 bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3">
-                        <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Nouvelle invitation</p>
-                        <div className="flex gap-3">
-                            <input
-                                type="email"
-                                required
-                                placeholder="email@exemple.com"
-                                value={inviteEmail}
-                                onChange={e => setInviteEmail(e.target.value)}
-                                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/60 transition-all placeholder:text-zinc-600"
-                            />
-                            <select
-                                value={inviteRole}
-                                onChange={e => setInviteRole(e.target.value)}
-                                className="bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white outline-none"
-                            >
-                                <option value="viewer">Viewer</option>
-                                <option value="editor">Editor</option>
-                                <option value="admin">Admin</option>
-                            </select>
-                            <button
-                                type="submit"
-                                disabled={inviteLoading}
-                                className="px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-bold disabled:opacity-50 flex items-center gap-1.5 transition-all"
-                            >
-                                {inviteLoading ? (
-                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <span className="material-symbols-outlined text-[16px]">send</span>
-                                )}
-                                Envoyer
-                            </button>
-                        </div>
-                        {inviteMsg && (
-                            <p className={"text-xs px-3 py-2 rounded-lg " + (inviteMsg.type === 'ok' ? "text-green-400 bg-green-500/10" : "text-rose-400 bg-rose-500/10")}>
-                                {inviteMsg.text}
-                            </p>
-                        )}
-                    </form>
-                )}
 
                 {profiles.length === 0 ? (
                     <p className="text-center text-zinc-500 text-sm py-6">Aucun membre dans l'equipe pour l'instant.</p>

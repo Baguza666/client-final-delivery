@@ -43,40 +43,106 @@ export async function withWorkspace<T>(
     return handler({ supabase, user, workspaceId })
 }
 
+export type TierLockedError = ActionError & {
+    code: 'TIER_LOCKED'
+    requiredTier: Tier
+    fromKey: string
+}
+
 /**
- * withTier wraps a server action with a minimum-tier check. The wrapped handler
- * receives the live workspace tier so it can branch (e.g. enforce per-tier caps).
- *
- * On tier lock, returns { error, code: 'TIER_LOCKED', requiredTier, fromKey }
- * which the page boundary uses to redirect to /pricing?from=<fromKey>.
+ * Standalone tier gate for actions that bypass withWorkspace (e.g. those using
+ * a raw createServerClient cookie session). Returns null on pass, TierLockedError
+ * on lock. The action returns the error to its caller; the page boundary handles
+ * the redirect.
  */
-export function withTier<T>(
+export async function gateTier(
+    supabase: AppSupabaseClient,
+    userId: string,
     required: Tier,
-    handler: (ctx: TierWorkspaceContext) => Promise<T>,
-    fromKey: string = 'unknown',
-): () => Promise<T | (ActionError & { requiredTier?: Tier; fromKey?: string })> {
-    return async () => {
-        return withWorkspace(async (ctx) => {
-            const { data: workspace, error } = await ctx.supabase
-                .from('workspaces')
-                .select('tier, tier_at_peak')
-                .eq('id', ctx.workspaceId)
-                .single<{ tier: Tier; tier_at_peak: Tier }>()
-            if (error || !workspace) {
-                return { error: 'Espace de travail introuvable.' } as ActionError
-            }
-            const effective = getEffectiveTier(workspace)
-            if (!tierMeets(effective, required)) {
-                return {
-                    error: `Cette fonctionnalité requiert le tier ${required}.`,
-                    code: 'TIER_LOCKED',
-                    requiredTier: required,
-                    fromKey,
-                } satisfies ActionError & { requiredTier: Tier; fromKey: string }
-            }
-            return handler({ ...ctx, tier: effective, tierAtPeak: workspace.tier_at_peak })
-        }) as Promise<T | (ActionError & { requiredTier?: Tier; fromKey?: string })>
+    fromKey: string,
+): Promise<TierLockedError | null> {
+    const workspaceId = await getOrCreateWorkspace(supabase, userId).catch(() => null)
+    if (!workspaceId) {
+        return {
+            error: 'Espace de travail introuvable.',
+            code: 'TIER_LOCKED',
+            requiredTier: required,
+            fromKey,
+        }
     }
+    const { data: workspace, error } = await supabase
+        .from('workspaces')
+        .select('tier')
+        .eq('id', workspaceId)
+        .single<{ tier: Tier }>()
+    if (error || !workspace) {
+        return {
+            error: 'Espace de travail introuvable.',
+            code: 'TIER_LOCKED',
+            requiredTier: required,
+            fromKey,
+        }
+    }
+    const effective = getEffectiveTier(workspace)
+    if (!tierMeets(effective, required)) {
+        return {
+            error: `Cette fonctionnalité requiert le tier ${required}.`,
+            code: 'TIER_LOCKED',
+            requiredTier: required,
+            fromKey,
+        }
+    }
+    return null
+}
+
+export function isTierLockedError(value: unknown): value is TierLockedError {
+    return !!value
+        && typeof value === 'object'
+        && 'code' in value
+        && (value as { code?: string }).code === 'TIER_LOCKED'
+}
+
+/**
+ * requireTier — inline tier check usable inside an existing withWorkspace handler.
+ * Returns either the resolved tier context or a structured TierLockedError that
+ * the action should return to its caller (the page boundary then redirects to
+ * /pricing?from=<fromKey>).
+ *
+ * Usage:
+ *   return withWorkspace(async (ctx) => {
+ *     const gate = await requireTier(ctx, 'pro', 'quotes')
+ *     if (isTierLockedError(gate)) return gate
+ *     // ...handler logic with gate.tier / gate.tierAtPeak
+ *   })
+ */
+export async function requireTier(
+    ctx: WorkspaceContext,
+    required: Tier,
+    fromKey: string,
+): Promise<TierLockedError | { tier: Tier; tierAtPeak: Tier }> {
+    const { data: workspace, error } = await ctx.supabase
+        .from('workspaces')
+        .select('tier, tier_at_peak')
+        .eq('id', ctx.workspaceId)
+        .single<{ tier: Tier; tier_at_peak: Tier }>()
+    if (error || !workspace) {
+        return {
+            error: 'Espace de travail introuvable.',
+            code: 'TIER_LOCKED',
+            requiredTier: required,
+            fromKey,
+        }
+    }
+    const effective = getEffectiveTier(workspace)
+    if (!tierMeets(effective, required)) {
+        return {
+            error: `Cette fonctionnalité requiert le tier ${required}.`,
+            code: 'TIER_LOCKED',
+            requiredTier: required,
+            fromKey,
+        }
+    }
+    return { tier: effective, tierAtPeak: workspace.tier_at_peak }
 }
 
 /**

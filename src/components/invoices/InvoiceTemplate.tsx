@@ -14,9 +14,10 @@ interface InvoiceTemplateProps {
         taxAmount: number;
         total: number;
     };
+    addWatermark?: boolean;
 }
 
-export default function InvoiceTemplate({ data }: InvoiceTemplateProps) {
+export default function InvoiceTemplate({ data, addWatermark = false }: InvoiceTemplateProps) {
     // Destructure data so we can use the variables
     const { invoice_number, date, due_date, client, workspace, items, subtotal, taxAmount, total } = data;
 
@@ -137,6 +138,15 @@ export default function InvoiceTemplate({ data }: InvoiceTemplateProps) {
             </div>
 
             <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-[#3B82F6]/20 to-transparent clip-path-triangle"></div>
+
+            {addWatermark && (
+                <div
+                    className="absolute left-0 right-0 bottom-1 flex justify-center pointer-events-none"
+                    style={{ fontSize: '8pt', color: '#9CA3AF' }}
+                >
+                    Créé avec Invoicify · invoicify.ma
+                </div>
+            )}
         </div>
     );
 }

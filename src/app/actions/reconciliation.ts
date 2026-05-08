@@ -1,20 +1,16 @@
 'use server'
 
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
-
-async function getSupabase() {
-    const cookieStore = await cookies()
-    return createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { get: (name) => cookieStore.get(name)?.value } },
-    )
-}
+import { gateTier } from '@/lib/action-wrapper'
 
 export async function markInvoicePaid(invoiceId: string): Promise<{ success: boolean; error?: string }> {
-    const supabase = await getSupabase()
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Non authentifié.' }
+
+    const lock = await gateTier(supabase, user.id, 'pro', 'reconciliation')
+    if (lock) return { success: false, error: lock.error }
 
     const { error } = await supabase.rpc('mark_invoice_paid', { invoice_id: invoiceId })
 

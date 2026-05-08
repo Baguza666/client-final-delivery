@@ -3,11 +3,27 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { sendEmail } from './sendEmail'
-import { withWorkspace } from '@/lib/action-wrapper'
+import { withWorkspace, requireTier, isTierLockedError, LimitExceededError } from '@/lib/action-wrapper'
+import { checkInvoiceLimit } from '@/lib/billing/invoice-counter'
 
 // --- 1. CREATE INVOICE ---
 export async function createInvoice(formData: FormData) {
-    return withWorkspace(async ({ supabase, user, workspaceId }) => {
+    return withWorkspace(async (ctx) => {
+        const { supabase, user, workspaceId } = ctx
+        const gate = await requireTier(ctx, 'free', 'invoice_limit')
+        if (isTierLockedError(gate)) return gate
+        try {
+            await checkInvoiceLimit(ctx, gate.tier)
+        } catch (err) {
+            if (err instanceof LimitExceededError) {
+                return {
+                    error: `Limite mensuelle atteinte (${err.limit} factures). Passez à Pro pour des factures illimitées.`,
+                    code: 'LIMIT_EXCEEDED',
+                    fromKey: err.from,
+                }
+            }
+            throw err
+        }
         const clientId = formData.get('client_id')
         const rawDate = formData.get('date') as string | null
         const rawDueDate = formData.get('due_date') as string | null

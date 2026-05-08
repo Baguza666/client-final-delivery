@@ -2,11 +2,14 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { withWorkspace } from '@/lib/action-wrapper'
+import { withWorkspace, requireTier, isTierLockedError } from '@/lib/action-wrapper'
 import { generateNextNumber } from '@/lib/document-numbering'
 
 export async function createDeliveryNote(formData: FormData) {
-    return withWorkspace(async ({ supabase, user, workspaceId }) => {
+    return withWorkspace(async (ctx) => {
+        const { supabase, user, workspaceId } = ctx
+        const gate = await requireTier(ctx, 'pro', 'delivery_notes')
+        if (isTierLockedError(gate)) return gate
         const clientId = formData.get('client_id')
         const rawDate = formData.get('date') as string | null
         const date = rawDate?.trim() || new Date().toISOString().split('T')[0]
@@ -45,7 +48,10 @@ export async function createDeliveryNote(formData: FormData) {
 }
 
 export async function updateDeliveryNote(id: string, formData: FormData) {
-    return withWorkspace(async ({ supabase, workspaceId }) => {
+    return withWorkspace(async (ctx) => {
+        const { supabase, workspaceId } = ctx
+        const gate = await requireTier(ctx, 'pro', 'delivery_notes')
+        if (isTierLockedError(gate)) return gate
         const clientId = formData.get('client_id')
         const number = formData.get('number') as string
         const date = formData.get('date')
