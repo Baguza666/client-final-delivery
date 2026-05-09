@@ -1,37 +1,56 @@
-import { redirect } from 'next/navigation'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
-    FileText,
-    Mail,
-    LayoutDashboard,
-    Link2,
     CheckCircle2,
+    Lock,
+    Clock,
+    PhoneCall,
+    Vote,
+    BookOpen,
     ArrowRight,
-    Zap,
-    Shield,
-    Globe,
 } from 'lucide-react'
+import { daysUntilLaunch, formattedLaunchDate } from '@/lib/launch-date'
+import { getWishlistCount } from '@/lib/wishlist-helpers'
+import WishlistForm from '@/components/wishlist/WishlistForm'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-export default async function LandingPage() {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: { get: (name) => cookieStore.get(name)?.value } },
-    )
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) redirect('/dashboard')
+export const metadata: Metadata = {
+    title: 'Invoicify — Bloquez votre tarif fondateur à vie · Lancement le 28 mai 2026',
+    description:
+        'Devis, BC, BL et factures conformes (ICE, IF, RC, CNSS) en un seul outil. Inscrivez-vous à la liste d\'attente et bloquez 50% de réduction sur le tarif Pro tant que votre compte reste actif.',
+    openGraph: {
+        title: 'Invoicify — Bloquez votre tarif fondateur. À vie.',
+        description:
+            'Devis, BC, BL et factures conformes ICE/IF/RC/CNSS. Bloquez 50% de réduction sur le tarif Pro à vie.',
+        images: ['/api/og'],
+        type: 'website',
+        locale: 'fr_FR',
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: 'Invoicify — Bloquez votre tarif fondateur. À vie.',
+        description:
+            'Devis, BC, BL et factures conformes ICE/IF/RC/CNSS. Bloquez 50% de réduction sur le tarif Pro à vie.',
+        images: ['/api/og'],
+    },
+}
+
+export default async function WishlistLanding() {
+    const [days, count] = await Promise.all([
+        Promise.resolve(daysUntilLaunch()),
+        getWishlistCount(),
+    ])
+    const launchDate = formattedLaunchDate()
+    const progressPct = Math.min(100, (count / 100) * 100)
+    const showCallVariant = count < 30
 
     return (
-        <div className="min-h-screen bg-[#07070B] text-white overflow-x-hidden">
-
-            {/* ── Nav ── */}
-            <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-6 lg:px-12 border-b border-white/[0.06] bg-[#07070B]/80 backdrop-blur-xl">
+        <div className="min-h-screen bg-[#020617] text-white overflow-x-hidden">
+            {/* Nav */}
+            <header className="fixed top-0 inset-x-0 z-50 h-14 flex items-center px-6 lg:px-12 border-b border-white/[0.06] bg-[#020617]/80 backdrop-blur-xl">
                 <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
                     <Image
                         src="/invoicify-logo.png"
@@ -41,274 +60,288 @@ export default async function LandingPage() {
                         className="h-7 w-auto object-contain"
                         priority
                     />
-                    <nav className="hidden md:flex items-center gap-8 text-sm text-white/50">
-                        <a href="#features" className="hover:text-white transition-colors">Fonctionnalités</a>
-                        <a href="#pricing" className="hover:text-white transition-colors">Tarifs</a>
-                    </nav>
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href="/login"
-                            className="text-sm font-semibold text-white/60 hover:text-white transition-colors"
-                        >
-                            Se connecter
-                        </Link>
-                        <Link
-                            href="/login"
-                            className="text-sm font-bold bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-xl transition-all duration-200 shadow-glow-sm hover:shadow-glow"
-                        >
-                            Commencer
-                        </Link>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/[0.12] px-3.5 py-1.5 text-xs font-bold text-accent">
+                        <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+                        </span>
+                        Lancement dans {days} jours
                     </div>
                 </div>
             </header>
 
-            {/* ── Hero ── */}
+            {/* Hero */}
             <section className="relative pt-32 pb-24 px-6 lg:px-12 flex flex-col items-center text-center overflow-hidden">
-                {/* Glow orbs */}
-                <div aria-hidden className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-primary/[0.07] rounded-full blur-[120px]" />
-                <div aria-hidden className="pointer-events-none absolute top-20 left-1/4 w-[300px] h-[300px] bg-accent/[0.05] rounded-full blur-[80px]" />
+                <div aria-hidden className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-primary/[0.10] rounded-full blur-[140px]" />
+                <div aria-hidden className="pointer-events-none absolute top-32 left-1/4 w-[400px] h-[400px] bg-accent/[0.08] rounded-full blur-[100px]" />
 
                 <div className="relative max-w-4xl mx-auto">
-                    {/* Badge */}
-                    <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-bold px-4 py-1.5 rounded-full mb-8 tracking-wide">
-                        <Zap className="w-3.5 h-3.5" />
-                        Facturation Marocaine Moderne · Version 1.0
+                    <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.10] px-4 py-1.5 mb-8 text-xs font-bold tracking-wide text-primary">
+                        🇲🇦 Pour les entrepreneurs marocains — tarif fondateur à vie
                     </div>
 
-                    {/* Headline */}
                     <h1 className="font-heading text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.05] mb-6">
-                        Créez des factures{' '}
-                        <span className="text-brand-gradient">professionnelles</span>
-                        <br />en quelques secondes
+                        Bloquez votre tarif fondateur.{' '}
+                        <span className="text-brand-gradient italic">À vie.</span>
                     </h1>
 
-                    <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto mb-10 leading-relaxed">
-                        Devis, factures, bons de commande et livraison — tout en un.
-                        Générez des PDF A4 impeccables et envoyez-les directement par email à vos clients.
+                    <p className="text-lg md:text-xl text-white/55 max-w-2xl mx-auto mb-10 leading-relaxed">
+                        Devis, BC, BL et factures conformes (ICE, IF, RC, CNSS) en un seul outil. Inscrivez-vous
+                        maintenant — payez le tarif du jour 1, tant que votre compte reste actif. Même dans 5 ans.
                     </p>
 
-                    {/* CTAs */}
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <Link
-                            href="/login"
-                            className="group inline-flex items-center gap-2.5 bg-primary hover:bg-primary-dark text-white font-bold text-base px-7 py-3.5 rounded-2xl transition-all duration-200 shadow-glow hover:shadow-glow w-full sm:w-auto justify-center"
-                        >
-                            Commencer gratuitement
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                        </Link>
-                        <Link
-                            href="/view/demo"
-                            className="inline-flex items-center gap-2.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.10] hover:border-white/[0.20] text-white/80 hover:text-white font-semibold text-base px-7 py-3.5 rounded-2xl transition-all duration-200 w-full sm:w-auto justify-center"
-                        >
-                            <FileText className="w-4 h-4" />
-                            Voir un exemple
-                        </Link>
+                    <div className="mx-auto max-w-xl">
+                        <WishlistForm source="hero" />
                     </div>
 
-                    {/* Trust signals */}
-                    <div className="flex items-center justify-center gap-6 mt-10 text-xs text-white/30 font-medium">
-                        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-status-paid" />Gratuit pour démarrer</span>
-                        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-status-paid" />Aucune carte requise</span>
-                        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-status-paid" />PDF A4 professionnel</span>
-                    </div>
-                </div>
+                    <p className="mt-3 text-xs text-white/35 max-w-xl mx-auto leading-relaxed">
+                        En vous inscrivant, vous acceptez de recevoir un email de confirmation et notre lien d&apos;accès le
+                        jour du lancement. Aucun spam.{' '}
+                        <Link href="/mentions-legales" className="underline underline-offset-2 hover:text-white/60">
+                            Mentions légales
+                        </Link>
+                        .
+                    </p>
 
-                {/* Hero mockup */}
-                <div className="relative mt-20 max-w-3xl w-full mx-auto">
-                    <div aria-hidden className="absolute inset-0 bg-primary/[0.04] blur-3xl rounded-3xl" />
-                    <div className="relative bg-white/[0.025] border border-white/[0.08] rounded-2xl overflow-hidden shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
-                        {/* Mock topbar */}
-                        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-white/[0.06] bg-white/[0.02]">
-                            <div className="w-2.5 h-2.5 rounded-full bg-rose-500/60" />
-                            <div className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
-                            <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                            <div className="flex-1 mx-4 bg-white/[0.04] rounded-md h-5" />
-                            <div className="w-16 h-5 bg-primary/20 rounded-md" />
-                        </div>
-                        {/* Mock invoice card */}
-                        <div className="p-6 sm:p-10 bg-white text-zinc-900 text-left">
-                            <div className="flex justify-between items-start mb-6">
-                                <div>
-                                    <div className="h-8 w-32 bg-zinc-100 rounded mb-2" />
-                                    <div className="h-3 w-24 bg-zinc-100 rounded" />
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-3xl font-extrabold text-zinc-900 tracking-tight">FACTURE</p>
-                                    <p className="text-sm font-bold text-primary mt-1">N° INV-2024-0042</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-10 mb-8 text-sm">
-                                <div>
-                                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Émetteur</p>
-                                    <p className="font-bold text-zinc-900">Ma Société SARL</p>
-                                    <p className="text-zinc-500">123 Rue Hassan II, Casablanca</p>
-                                    <p className="text-zinc-500">ICE: 000123456789012</p>
-                                </div>
-                                <div>
-                                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Facturé à</p>
-                                    <p className="font-bold text-zinc-900">Client Premium SAS</p>
-                                    <p className="text-zinc-500">45 Avenue Mohammed V</p>
-                                    <p className="text-zinc-500">Rabat, Maroc</p>
-                                </div>
-                            </div>
-                            <table className="w-full text-xs mb-6">
-                                <thead><tr className="border-b-2 border-zinc-800">
-                                    <th className="text-left pb-2 font-bold text-zinc-600 text-[9px] uppercase tracking-wider">Description</th>
-                                    <th className="text-right pb-2 font-bold text-zinc-600 text-[9px] uppercase tracking-wider">Qté</th>
-                                    <th className="text-right pb-2 font-bold text-zinc-600 text-[9px] uppercase tracking-wider">Prix Unit.</th>
-                                    <th className="text-right pb-2 font-bold text-zinc-600 text-[9px] uppercase tracking-wider">Total HT</th>
-                                </tr></thead>
-                                <tbody className="divide-y divide-zinc-100">
-                                    {[
-                                        ['Développement application web', '1', '15 000,00', '15 000,00'],
-                                        ['Maintenance mensuelle (3 mois)', '3', '2 500,00', '7 500,00'],
-                                        ['Formation & accompagnement', '2', '1 800,00', '3 600,00'],
-                                    ].map(([desc, qty, unit, total]) => (
-                                        <tr key={desc}>
-                                            <td className="py-2 font-medium text-zinc-800">{desc}</td>
-                                            <td className="py-2 text-right text-zinc-500 font-mono">{qty}</td>
-                                            <td className="py-2 text-right text-zinc-500 font-mono">{unit} DH</td>
-                                            <td className="py-2 text-right font-bold text-zinc-900 font-mono">{total} DH</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                            <div className="flex justify-end">
-                                <div className="space-y-1 w-48 text-xs">
-                                    <div className="flex justify-between text-zinc-500"><span>Total HT</span><span className="font-mono">26 100,00 DH</span></div>
-                                    <div className="flex justify-between text-zinc-500 pb-1 border-b border-zinc-200"><span>TVA 20%</span><span className="font-mono">5 220,00 DH</span></div>
-                                    <div className="flex justify-between font-extrabold text-zinc-900 text-sm pt-1"><span>Total TTC</span><span className="font-mono text-primary">31 320,00 DH</span></div>
-                                </div>
-                            </div>
-                        </div>
+                    <div className="flex items-center justify-center gap-6 mt-6 text-xs text-white/40 font-medium">
+                        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-status-paid" />30 secondes</span>
+                        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-status-paid" />Sans carte</span>
+                        <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-status-paid" />Sans engagement</span>
                     </div>
-                    {/* Floating status badge */}
-                    <div className="absolute -top-3 -right-3 sm:-right-8 bg-status-paid text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        PDF généré — 0.8s
+
+                    {/* Counter */}
+                    <div className="mt-10 mx-auto max-w-md">
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                            <div
+                                className="h-full rounded-full bg-brand-gradient transition-all duration-500"
+                                style={{ width: `${progressPct}%` }}
+                            />
+                        </div>
+                        <p className="mt-3 text-sm text-white/55">
+                            <span className="font-bold text-white">{count}</span> entrepreneurs déjà inscrits — places limitées au lancement
+                        </p>
                     </div>
                 </div>
             </section>
 
-            {/* ── Features ── */}
-            <section id="features" className="relative py-24 px-6 lg:px-12">
+            {/* Problem */}
+            <section className="relative py-24 px-6 lg:px-12">
+                <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary mb-3">Le problème</p>
+                        <h2 className="font-heading text-3xl md:text-4xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+                            Word, Excel, papier. Et chaque devis prend 20 minutes.
+                        </h2>
+                        <p className="text-white/55 leading-relaxed mb-4">
+                            Les relances passent à la trappe. Vous ne savez jamais qui vous doit combien — ni quand. La
+                            conformité ICE, IF, RC, CNSS se gère à la main, à chaque fois.
+                        </p>
+                        <p className="text-white/80 font-semibold leading-relaxed mb-8">
+                            Invoicify remplace tout ça. Une chaîne, un tableau de bord, zéro double-saisie.
+                        </p>
+
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                            {['Devis', 'BC', 'BL', 'Facture', 'Paiement'].map((step, i) => (
+                                <span key={step} className="flex items-center gap-2">
+                                    <span className="rounded-full border border-primary/30 bg-primary/[0.10] px-3 py-1.5 text-primary">
+                                        {step}
+                                    </span>
+                                    {i < 4 ? <span className="text-white/30">→</span> : null}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="relative">
+                        <div aria-hidden className="absolute inset-0 bg-primary/[0.05] blur-3xl rounded-3xl" />
+                        <div className="relative bg-white/[0.025] border border-white/[0.08] rounded-2xl overflow-hidden shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
+                            <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+                                <div className="w-2.5 h-2.5 rounded-full bg-rose-500/60" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
+                                <div className="flex-1 mx-4 bg-white/[0.04] rounded-md h-5" />
+                            </div>
+                            <div className="p-6 sm:p-10 bg-white text-zinc-900 text-left">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div>
+                                        <div className="h-8 w-32 bg-zinc-100 rounded mb-2" />
+                                        <div className="h-3 w-24 bg-zinc-100 rounded" />
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-3xl font-extrabold text-zinc-900 tracking-tight">FACTURE</p>
+                                        <p className="text-sm font-bold text-primary mt-1">N° INV-2026-0042</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-10 mb-6 text-sm">
+                                    <div>
+                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Émetteur</p>
+                                        <p className="font-bold text-zinc-900">Atlas Trading SARL</p>
+                                        <p className="text-zinc-500">123 Rue Hassan II, Casablanca</p>
+                                        <p className="text-zinc-500">ICE: 002647389000058</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Facturé à</p>
+                                        <p className="font-bold text-zinc-900">Rabat Logistics SAS</p>
+                                        <p className="text-zinc-500">45 Avenue Mohammed V</p>
+                                        <p className="text-zinc-500">Rabat, Maroc</p>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end">
+                                    <div className="space-y-1 w-48 text-xs">
+                                        <div className="flex justify-between text-zinc-500"><span>Total HT</span><span className="font-mono">26 100,00 DH</span></div>
+                                        <div className="flex justify-between text-zinc-500 pb-1 border-b border-zinc-200"><span>TVA 20%</span><span className="font-mono">5 220,00 DH</span></div>
+                                        <div className="flex justify-between font-extrabold text-zinc-900 text-sm pt-1"><span>Total TTC</span><span className="font-mono text-primary">31 320,00 DH</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="absolute -top-3 -right-3 sm:-right-8 bg-status-paid text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            PDF généré — 0.8s
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Benefits */}
+            <section className="relative py-24 px-6 lg:px-12">
                 <div className="max-w-6xl mx-auto">
-                    <div className="text-center mb-16">
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary mb-3">Fonctionnalités</p>
-                        <h2 className="font-heading text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-                            Tout ce dont vous avez besoin
+                    <div className="text-center mb-14">
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary mb-3">Ce que vous obtenez</p>
+                        <h2 className="font-heading text-3xl md:text-4xl font-extrabold text-white tracking-tight mb-3">
+                            Quatre raisons de vous inscrire aujourd&apos;hui.
                         </h2>
-                        <p className="text-white/40 mt-3 max-w-xl mx-auto text-base">
-                            Une suite complète pour gérer votre activité commerciale, de l&apos;offre à la livraison.
+                        <p className="text-white/45 max-w-xl mx-auto">
+                            Réservé aux inscrits avant le jour du lancement. Pas après.
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                        {[
-                            {
-                                icon: FileText,
-                                color: 'text-primary bg-primary/10 border-primary/20',
-                                title: 'Génération PDF A4',
-                                desc: 'Factures, devis, BL et BC — exportés en PDF A4 impeccable en moins d\'une seconde.',
-                            },
-                            {
-                                icon: Mail,
-                                color: 'text-accent bg-accent/10 border-accent/20',
-                                title: 'Envoi direct par email',
-                                desc: 'Envoyez la facture avec PDF en pièce jointe directement depuis l\'application.',
-                            },
-                            {
-                                icon: LayoutDashboard,
-                                color: 'text-violet-400 bg-violet-400/10 border-violet-400/20',
-                                title: 'Tableau de bord',
-                                desc: 'Visualisez votre chiffre d\'affaires, dépenses et trésorerie en temps réel.',
-                            },
-                            {
-                                icon: Link2,
-                                color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
-                                title: 'Liens de partage sécurisés',
-                                desc: 'Partagez vos factures via un lien unique. Vos clients peuvent consulter et télécharger le PDF.',
-                            },
-                        ].map(({ icon: Icon, color, title, desc }) => (
-                            <div
-                                key={title}
-                                className="group bg-white/[0.025] hover:bg-white/[0.045] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl p-6 transition-all duration-200"
-                            >
-                                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center mb-5 transition-transform duration-200 group-hover:scale-110 ${color}`}>
-                                    <Icon className="w-5 h-5" />
-                                </div>
-                                <h3 className="font-heading font-bold text-white text-base mb-2">{title}</h3>
-                                <p className="text-sm text-white/40 leading-relaxed">{desc}</p>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Secondary features row */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-5">
-                        {[
-                            { icon: Shield, title: 'Données sécurisées', desc: 'Hébergement cloud sécurisé avec chiffrement des données. Vos factures sont protégées.' },
-                            { icon: Globe, title: 'Multi-devises', desc: 'Facturation en MAD, EUR, USD et autres devises avec taux de change configurables.' },
-                            { icon: Zap, title: 'Rapide & Réactif', desc: 'Interface fluide et rapide. Créez une facture complète en moins de 2 minutes.' },
-                        ].map(({ icon: Icon, title, desc }) => (
-                            <div
-                                key={title}
-                                className="group bg-white/[0.015] hover:bg-white/[0.035] border border-white/[0.04] hover:border-white/[0.10] rounded-2xl p-6 transition-all duration-200 flex gap-4"
-                            >
-                                <div className="w-9 h-9 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center shrink-0">
-                                    <Icon className="w-4 h-4 text-white/60" />
-                                </div>
-                                <div>
-                                    <h3 className="font-heading font-bold text-white text-sm mb-1">{title}</h3>
-                                    <p className="text-xs text-white/40 leading-relaxed">{desc}</p>
-                                </div>
-                            </div>
-                        ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        {/* Card 01 */}
+                        <BenefitCard
+                            number="01"
+                            icon={Lock}
+                            title="Tarif fondateur, gelé à vie."
+                            body="Vous bénéficiez de 50% de réduction sur le tarif Pro, tant que votre abonnement reste actif. Pas d'augmentation. Pas de petites lignes."
+                        />
+                        {/* Card 02 */}
+                        <BenefitCard
+                            number="02"
+                            icon={Clock}
+                            title="48h d'avance sur tout le monde."
+                            body="Vous recevez votre lien d'accès avant l'ouverture publique. Configurez votre workspace pendant que les autres attendent."
+                        />
+                        {/* Card 03 — tiered */}
+                        {showCallVariant ? (
+                            <BenefitCard
+                                number="03"
+                                icon={PhoneCall}
+                                title="On configure votre compte avec vous."
+                                body="Logo, ICE, SMTP, premier devis. Un appel de 20 minutes — réservé aux 30 premiers inscrits. Vous facturez le jour même."
+                                highlight
+                            />
+                        ) : (
+                            <BenefitCard
+                                number="03"
+                                icon={BookOpen}
+                                title="Onboarding guidé en autonomie."
+                                body="Guide pas-à-pas pour configurer logo, ICE, SMTP et premier devis en 20 minutes. Support prioritaire les 30 premiers jours."
+                            />
+                        )}
+                        {/* Card 04 */}
+                        <BenefitCard
+                            number="04"
+                            icon={Vote}
+                            title="Vous votez sur les prochaines fonctionnalités."
+                            body="Les inscrits choisissent les 3 prochaines features. Vous construisez l'outil avec nous."
+                        />
                     </div>
                 </div>
             </section>
 
-            {/* ── CTA Band ── */}
-            <section id="pricing" className="py-24 px-6 lg:px-12">
+            {/* Final CTA */}
+            <section className="py-24 px-6 lg:px-12">
                 <div className="max-w-3xl mx-auto text-center relative">
-                    <div aria-hidden className="pointer-events-none absolute inset-0 bg-primary/[0.06] blur-3xl rounded-full" />
-                    <div className="relative bg-white/[0.025] border border-white/[0.08] rounded-3xl p-12 md:p-16">
-                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary mb-4">Commencez dès aujourd&apos;hui</p>
-                        <h2 className="font-heading text-3xl md:text-4xl font-extrabold text-white tracking-tight mb-4">
-                            Prêt à facturer comme un pro ?
+                    <div aria-hidden className="pointer-events-none absolute inset-0 bg-primary/[0.08] blur-3xl rounded-full" />
+                    <div className="relative bg-white/[0.025] border border-white/[0.08] rounded-3xl p-10 md:p-16 shadow-glow">
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary mb-3">Dernière étape</p>
+                        <h2 className="font-heading text-3xl md:text-4xl font-extrabold text-white tracking-tight mb-8">
+                            Une seule action. Tarif gelé à vie.
                         </h2>
-                        <p className="text-white/40 mb-8 text-base">
-                            Créez votre compte gratuitement et émettez votre première facture en quelques minutes.
+
+                        <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto mb-10">
+                            <Stat value={String(days)} label="jours avant le lancement" />
+                            <Stat value={String(count)} label="entrepreneurs déjà inscrits" />
+                            <Stat value="∞" label="votre tarif, à vie" />
+                        </div>
+
+                        <WishlistForm source="final-cta" variant="final" />
+
+                        <p className="mt-4 text-xs text-white/40 flex items-center justify-center gap-4">
+                            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-status-paid" />Lien d&apos;accès envoyé le jour J</span>
+                            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-status-paid" />Aucun spam</span>
                         </p>
-                        <Link
-                            href="/login"
-                            className="inline-flex items-center gap-2.5 bg-primary hover:bg-primary-dark text-white font-bold text-base px-8 py-4 rounded-2xl transition-all duration-200 shadow-glow hover:shadow-glow group"
-                        >
-                            Créer un compte gratuit
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                        </Link>
                     </div>
                 </div>
             </section>
 
-            {/* ── Footer ── */}
+            {/* Footer */}
             <footer className="border-t border-white/[0.06] py-10 px-6 lg:px-12">
-                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-                    <Image
-                        src="/invoicify-logo.png"
-                        alt="Invoicify"
-                        width={120}
-                        height={24}
-                        className="h-6 w-auto object-contain opacity-70"
-                    />
-                    <p className="text-xs text-white/25">
-                        © {new Date().getFullYear()} Invoicify. Tous droits réservés.
-                    </p>
-                    <div className="flex items-center gap-6 text-xs text-white/30">
-                        <Link href="/login" className="hover:text-white/60 transition-colors">Connexion</Link>
-                        <Link href="/unauthorized" className="hover:text-white/60 transition-colors">Mentions légales</Link>
+                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-white/35">
+                    <p>© 2026 Invoicify · Facturation marocaine moderne</p>
+                    <div className="flex items-center gap-6">
+                        <Link href="/mentions-legales" className="hover:text-white/70 transition-colors">Mentions légales</Link>
+                        <a href="mailto:hello@invoicify.ma" className="hover:text-white/70 transition-colors">Contact</a>
                     </div>
                 </div>
+                <p className="sr-only">Lancement prévu le {launchDate}.</p>
             </footer>
+        </div>
+    )
+}
+
+type BenefitCardProps = {
+    number: string
+    icon: React.ComponentType<{ className?: string }>
+    title: string
+    body: string
+    highlight?: boolean
+}
+
+function BenefitCard({ number, icon: Icon, title, body, highlight = false }: BenefitCardProps) {
+    return (
+        <div
+            className={`group relative rounded-2xl border p-7 transition-all duration-200 ${
+                highlight
+                    ? 'border-primary/40 bg-primary/[0.06] hover:bg-primary/[0.10] shadow-glow-sm'
+                    : 'border-white/[0.06] bg-white/[0.025] hover:border-white/[0.14] hover:bg-white/[0.04]'
+            }`}
+        >
+            <div className="flex items-center justify-between mb-5">
+                <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl border ${
+                        highlight
+                            ? 'border-primary/40 bg-primary/[0.15] text-primary'
+                            : 'border-white/[0.08] bg-white/[0.04] text-white/70'
+                    }`}
+                >
+                    <Icon className="h-5 w-5" />
+                </div>
+                <span className="font-mono text-xs font-bold tracking-wider text-white/25">{number}</span>
+            </div>
+            <h3 className="font-heading text-lg font-bold text-white mb-2 leading-snug">{title}</h3>
+            <p className="text-sm text-white/55 leading-relaxed">{body}</p>
+        </div>
+    )
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+    return (
+        <div>
+            <div className="font-heading text-4xl md:text-5xl font-extrabold text-brand-gradient leading-none mb-2">
+                {value}
+            </div>
+            <div className="text-[11px] text-white/40 uppercase tracking-wide leading-tight">{label}</div>
         </div>
     )
 }

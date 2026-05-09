@@ -8,7 +8,7 @@ import BottomNav from '@/components/BottomNav'
 import Logo from '@/components/ui/Logo'
 import ChatWidget from '@/components/chat/ChatWidget'
 
-const HIDDEN_ROUTES = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/unauthorized', '/auth']
+const HIDDEN_ROUTES = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/unauthorized', '/auth', '/preview', '/mentions-legales']
 
 function MobileTopBar() {
     const { openMobile } = useSidebar()

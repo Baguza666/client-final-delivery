@@ -7,12 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "clean": "rm -rf .next node_modules/.cache"
+    "clean": "rm -rf .next node_modules/.cache",
+    "email": "email dev --dir emails --port 3001"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.67",
     "@ai-sdk/openai": "^3.0.53",
     "@ai-sdk/react": "^3.0.170",
+    "@react-email/components": "^1.0.12",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.48.0",
     "@upstash/ratelimit": "^2.0.8",
@@ -25,6 +27,7 @@
     "puppeteer": "^24.42.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-email": "^6.1.1",
     "recharts": "^2.15.4",
     "resend": "^6.12.2",
     "tailwind-merge": "^2.2.0",

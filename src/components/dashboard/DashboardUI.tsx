@@ -113,7 +113,7 @@ export default function DashboardUI({
     const momExp = prevExpMTD > 0 ? ((expMTD - prevExpMTD) / prevExpMTD) * 100 : expMTD > 0 ? 100 : 0
 
     return (
-        <main className="flex flex-col px-5 py-4 min-h-screen lg:h-screen lg:overflow-hidden relative bg-zinc-950">
+        <main className="flex flex-col px-5 py-4 min-h-screen lg:h-screen lg:overflow-hidden relative">
             {/* Ambient glows — brand-matched */}
             <div aria-hidden className="pointer-events-none fixed -top-24 left-[12%] w-[600px] h-[420px] bg-indigo-600/[0.05] rounded-full blur-[110px]" />
             <div aria-hidden className="pointer-events-none fixed bottom-0 right-0 w-[480px] h-[380px] bg-violet-600/[0.04] rounded-full blur-[100px]" />
