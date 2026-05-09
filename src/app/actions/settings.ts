@@ -42,6 +42,61 @@ async function createClient() {
     )
 }
 
+// --- 0. FISCAL INFO (DGI compliance form on /settings/billing) ---
+export async function saveFiscalInfo(formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Non connecté.' };
+
+    let workspaceId: string;
+    try {
+        workspaceId = await getOrCreateWorkspace(supabase, user.id);
+    } catch (e) {
+        return { error: e instanceof Error ? e.message : 'Espace de travail introuvable.' };
+    }
+
+    const allowedRegimes = ['auto_entrepreneur', 'cpu', 'rns', 'rnr', 'forfait', 'none'];
+    const taxRegime = String(formData.get('tax_regime') ?? 'auto_entrepreneur');
+    if (!allowedRegimes.includes(taxRegime)) {
+        return { error: 'Régime fiscal invalide.' };
+    }
+
+    const ice = String(formData.get('ice') ?? '').trim();
+    if (ice && !/^\d{15}$/.test(ice)) return { error: 'ICE invalide (15 chiffres requis).' };
+    const taxId = String(formData.get('tax_id') ?? '').trim();
+    if (taxId && !/^\d+$/.test(taxId)) return { error: 'IF invalide (chiffres uniquement).' };
+
+    const update = {
+        name: String(formData.get('name') ?? '').trim() || null,
+        email: String(formData.get('email') ?? '').trim() || null,
+        phone: String(formData.get('phone') ?? '').trim() || null,
+        address: String(formData.get('address') ?? '').trim() || null,
+        city: String(formData.get('city') ?? '').trim() || null,
+        country: String(formData.get('country') ?? '').trim() || null,
+        ice: ice || null,
+        tax_id: taxId || null,
+        rc: String(formData.get('rc') ?? '').trim() || null,
+        cnss: String(formData.get('cnss') ?? '').trim() || null,
+        tp: String(formData.get('tp') ?? '').trim() || null,
+        tax_regime: taxRegime,
+        bank_name: String(formData.get('bank_name') ?? '').trim() || null,
+        rib: String(formData.get('rib') ?? '').trim() || null,
+        updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+        .from('workspaces')
+        .update(update)
+        .eq('id', workspaceId)
+        .eq('owner_id', user.id);
+
+    if (error) return { error: error.message };
+
+    revalidatePath('/settings/billing');
+    revalidatePath('/settings');
+    return { success: true };
+}
+
 // --- 1. GENERAL SETTINGS (Updated with New Fields) ---
 export async function updateSettings(formData: FormData) {
     const supabase = await createClient();

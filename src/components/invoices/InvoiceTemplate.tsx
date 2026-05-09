@@ -14,9 +14,10 @@ interface InvoiceTemplateProps {
         taxAmount: number;
         total: number;
     };
+    addWatermark?: boolean;
 }
 
-export default function InvoiceTemplate({ data }: InvoiceTemplateProps) {
+export default function InvoiceTemplate({ data, addWatermark = false }: InvoiceTemplateProps) {
     // Destructure data so we can use the variables
     const { invoice_number, date, due_date, client, workspace, items, subtotal, taxAmount, total } = data;
 
@@ -73,6 +74,13 @@ export default function InvoiceTemplate({ data }: InvoiceTemplateProps) {
                             <p className="font-bold text-lg">{client.name}</p>
                             <p>{client.address}</p>
                             <p>{client.email}</p>
+                            {(client.ice || client.if) && (
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    {client.ice && <>ICE : {client.ice}</>}
+                                    {client.ice && client.if && <> · </>}
+                                    {client.if && <>IF : {client.if}</>}
+                                </p>
+                            )}
                         </div>
                     ) : (
                         <p className="text-sm text-gray-300 italic">Sélectionnez un client...</p>
@@ -131,12 +139,30 @@ export default function InvoiceTemplate({ data }: InvoiceTemplateProps) {
                         workspace?.ice && `ICE: ${workspace.ice}`,
                         workspace?.rc && `RC: ${workspace.rc}`,
                         workspace?.tax_id && `IF: ${workspace.tax_id}`,
+                        workspace?.cnss && `CNSS: ${workspace.cnss}`,
                     ].filter(Boolean).join(' • ')}
+                </p>
+                {workspace?.tax_regime === 'auto_entrepreneur' && (
+                    <p className="mb-1 text-[9px] normal-case tracking-normal text-gray-500">
+                        TVA non applicable selon article 91 du CGI - statut auto-entrepreneur.
+                    </p>
+                )}
+                <p className="text-[9px] normal-case tracking-normal text-gray-400">
+                    Document N° {invoice_number} · Type 380 · Devise MAD
                 </p>
                 <p>Merci de votre confiance.</p>
             </div>
 
             <div className="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-[#3B82F6]/20 to-transparent clip-path-triangle"></div>
+
+            {addWatermark && (
+                <div
+                    className="absolute left-0 right-0 bottom-1 flex justify-center pointer-events-none"
+                    style={{ fontSize: '8pt', color: '#9CA3AF' }}
+                >
+                    Créé avec Invoicify · invoicify.ma
+                </div>
+            )}
         </div>
     );
 }

@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { withWorkspace } from '@/lib/action-wrapper'
+import { withWorkspace, requireTier, isTierLockedError } from '@/lib/action-wrapper'
 
 export interface ExpenseInput {
     description: string
@@ -16,7 +16,10 @@ export interface ExpenseInput {
 
 // --- 1. CREATE EXPENSE ---
 export async function createExpense(formData: ExpenseInput) {
-    return withWorkspace(async ({ supabase, workspaceId }) => {
+    return withWorkspace(async (ctx) => {
+        const { supabase, workspaceId } = ctx
+        const gate = await requireTier(ctx, 'pro', 'expenses')
+        if (isTierLockedError(gate)) return gate
         const amount = parseFloat(String(formData.amount))
         if (isNaN(amount) || amount <= 0) return { error: 'Montant invalide.' }
 
@@ -50,7 +53,10 @@ export async function createExpense(formData: ExpenseInput) {
 
 // --- 2. PAY DEBT INSTALLMENT ---
 export async function payDebtInstallment(debtId: string, amount: number, debtName: string): Promise<{ success: boolean; error?: string }> {
-    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+    const result = await withWorkspace(async (ctx) => {
+        const { supabase, workspaceId } = ctx
+        const gate = await requireTier(ctx, 'pro', 'debts')
+        if (isTierLockedError(gate)) return { success: false as const, error: gate.error }
         try {
             // Fetch debt and verify it belongs to the authenticated user's workspace
             const { data: debt, error: fetchError } = await supabase
@@ -108,7 +114,10 @@ export async function payDebtInstallment(debtId: string, amount: number, debtNam
 
 // --- 3. DELETE EXPENSE ---
 export async function deleteExpense(id: string) {
-    return withWorkspace(async ({ supabase, workspaceId }) => {
+    return withWorkspace(async (ctx) => {
+        const { supabase, workspaceId } = ctx
+        const gate = await requireTier(ctx, 'pro', 'expenses')
+        if (isTierLockedError(gate)) return gate
         const { error } = await supabase
             .from('expenses')
             .delete()
@@ -124,7 +133,10 @@ export async function deleteExpense(id: string) {
 
 // --- 4. ADD EXPENSE (FormData, with receipt upload) ---
 export async function addExpense(formData: FormData): Promise<{ success: boolean; error?: string }> {
-    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+    const result = await withWorkspace(async (ctx) => {
+        const { supabase, workspaceId } = ctx
+        const gate = await requireTier(ctx, 'pro', 'expenses')
+        if (isTierLockedError(gate)) return { success: false as const, error: gate.error }
         const amount = formData.get('amount');
         const description = formData.get('description');
         const category = formData.get('category');
@@ -171,7 +183,10 @@ export async function addExpense(formData: FormData): Promise<{ success: boolean
 
 // --- 5. CREATE NEW DEBT ---
 export async function createDebt(formData: FormData): Promise<{ success: boolean; error?: string }> {
-    const result = await withWorkspace(async ({ supabase, workspaceId }) => {
+    const result = await withWorkspace(async (ctx) => {
+        const { supabase, workspaceId } = ctx
+        const gate = await requireTier(ctx, 'pro', 'debts')
+        if (isTierLockedError(gate)) return { success: false as const, error: gate.error }
         const creditor = (formData.get('creditor') as string)?.trim();
         if (!creditor) return { success: false, error: 'Le nom du créancier est requis.' };
 

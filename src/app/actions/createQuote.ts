@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { withWorkspace } from '@/lib/action-wrapper'
+import { withWorkspace, requireTier, isTierLockedError } from '@/lib/action-wrapper'
 import { z } from 'zod'
 
 const QuoteItemSchema = z.object({
@@ -29,7 +29,10 @@ export async function createQuote(rawData: QuotePayload) {
     if (!parsed.success) return { error: parsed.error.issues[0].message }
     const data = parsed.data
 
-    return withWorkspace(async ({ supabase, workspaceId }) => {
+    return withWorkspace(async (ctx) => {
+        const { supabase, workspaceId } = ctx
+        const gate = await requireTier(ctx, 'pro', 'quotes')
+        if (isTierLockedError(gate)) return gate
         // 1. Create Quote
         const { data: quote, error: quoteError } = await supabase
             .from('quotes')

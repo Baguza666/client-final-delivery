@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { createClient } from '@/utils/supabase/server';
 import { getOrCreateWorkspace } from '@/lib/workspace';
 import { createClientFromAI, markInvoicePaidFromAI, createInvoiceFromAI, InvoiceItemSchema } from '@/app/actions/ai-actions';
+import { getEffectiveTier, tierMeets, type Tier } from '@/lib/tiers';
+import { getAiMessageUsage, recordAiUserMessage } from '@/lib/billing/ai-message-counter';
 
 const googleProvider = createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -96,9 +98,56 @@ export async function POST(req: Request) {
             return new Response('Workspace unavailable', { status: 500 });
         }
 
-        console.log(`[chat] POST user=${user.id} workspace=${workspaceId}`);
+        // Tier gate: AI features require Pro or higher.
+        const { data: ws } = await supabase
+            .from('workspaces')
+            .select('tier')
+            .eq('id', workspaceId)
+            .single<{ tier: Tier }>();
+        const effectiveTier = ws ? getEffectiveTier(ws) : ('free' as Tier);
+        if (!tierMeets(effectiveTier, 'pro')) {
+            return new Response(
+                JSON.stringify({
+                    error: 'TIER_LOCKED',
+                    requiredTier: 'pro',
+                    fromKey: 'ai_features',
+                    message: 'L\'assistant IA requiert un abonnement Pro.',
+                }),
+                { status: 402, headers: { 'Content-Type': 'application/json' } },
+            );
+        }
+
+        // AI message cap.
+        const usage = await getAiMessageUsage(
+            { supabase, user, workspaceId },
+            effectiveTier,
+        );
+        if (usage.status === 'limit') {
+            return new Response(
+                JSON.stringify({
+                    error: 'LIMIT_EXCEEDED',
+                    fromKey: 'ai_limit',
+                    used: usage.used,
+                    limit: usage.limit,
+                    message: `Quota mensuel IA atteint (${usage.used}/${usage.limit}). Passez à Business pour 1 000 messages/mois.`,
+                }),
+                { status: 429, headers: { 'Content-Type': 'application/json' } },
+            );
+        }
+
+        console.log(`[chat] POST user=${user.id} workspace=${workspaceId} tier=${effectiveTier} ai_used=${usage.used}/${usage.limit ?? '∞'}`);
 
         const { messages }: { messages: UIMessage[] } = await req.json();
+
+        // Record the latest user message for the monthly counter.
+        const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+        if (lastUserMsg) {
+            const text = lastUserMsg.parts
+                .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+                .map((p) => p.text)
+                .join('');
+            await recordAiUserMessage({ supabase, user, workspaceId }, text || lastUserMsg);
+        }
 
         const result = streamText({
             model: withFallback(
