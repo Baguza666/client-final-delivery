@@ -259,9 +259,7 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
 
                                                 {showSignature && (
                                                     <div className="absolute bottom-8 right-12 z-30 pointer-events-none transform -rotate-12">
-                                                        <div className="text-6xl text-blue-900 opacity-90 drop-shadow-sm" style={{ fontFamily: "'Ballet', cursive", textShadow: '2px 2px 2px rgba(0,0,0,0.1)' }}>
-                                                            Assal
-                                                        </div>
+                                                        <img src="/assal-signature.png" alt="Signature" className="h-24 opacity-90 drop-shadow-sm" />
                                                     </div>
                                                 )}
                                             </div>
