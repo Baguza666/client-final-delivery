@@ -119,6 +119,7 @@ export async function updateInvoice(invoiceId: string, formData: FormData) {
     const status = formData.get('status')
     const number = formData.get('number') as string
     const discount = Number(formData.get('discount')) || 0
+    const notes = (formData.get('notes') as string) || null
 
     const itemsJson = formData.get('items') as string
     const items = itemsJson ? JSON.parse(itemsJson) : []
@@ -141,6 +142,7 @@ export async function updateInvoice(invoiceId: string, formData: FormData) {
             due_date: dueDate,
             status: status,
             discount: discount,
+            notes: notes,
             total_ht: totalHT_Gross,
             total_tva: totalTVA,
             total_ttc: totalTTC,

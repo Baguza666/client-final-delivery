@@ -55,8 +55,8 @@ function numberToFrenchWords(n: number): string {
 const formatNumber = (amount: number) => { if (amount === undefined || amount === null) return '0.00'; return new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); }
 const formatDate = (dateStr: string) => { try { const d = dateStr ? new Date(dateStr) : new Date(); if (isNaN(d.getTime())) return '-'; return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return '-'; } }
 
-// ✅ CHUNKING ENGINE: Reverted to 4 items per page
-const ITEMS_PER_PAGE = 4;
+// ✅ CHUNKING ENGINE: 6 items per page
+const ITEMS_PER_PAGE = 6;
 function chunkItems(items: any[]) {
     const chunks = [];
     for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
@@ -306,7 +306,7 @@ export default function QuoteViewer({ document, client, ws }: DocumentViewerProp
                                         <div className="w-2/3">
                                             <p className="font-bold text-zinc-900 mb-1 text-xs">IMSAL SERVICES | 7 Lotis Najmat El Janoub, El Jadida</p>
                                             <p className="text-zinc-500 normal-case tracking-normal mb-1">Tél: +212(0)6 61 43 52 83 • Email: i.assal@imsalservices.com • Web: imsalservices.ma</p>
-                                            <p className="text-zinc-400 font-mono">ICE: 002972127000089 | RC: 19215 | IF: 000081196000005 | CNSS: 5249290 | TP: 43003134</p>
+                                            <p className="text-zinc-400 font-mono">ICE: 002972127000089 | RC: 19215 | IF: 51683449 | CNSS: 5249290 | TP: 43003134</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="font-bold text-zinc-900 mb-1">Coordonnées Bancaires</p>

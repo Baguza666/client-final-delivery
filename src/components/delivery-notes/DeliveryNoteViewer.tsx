@@ -11,7 +11,7 @@ const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 
 // ✅ CHUNKING ENGINE
-const ITEMS_PER_PAGE = 8; // BL tables are shorter, we can fit more
+const ITEMS_PER_PAGE = 6;
 function chunkItems(items: any[]) {
     const chunks = [];
     for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
@@ -32,7 +32,7 @@ export default function DeliveryNoteViewer({ document, client, ws }: DocumentVie
     return (
         <main className="ml-72 p-8 print:ml-0 print:p-0 flex flex-col items-center relative min-h-screen print:bg-white">
 
-            <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 no-print">
+            <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 no-print print:hidden">
                 <div className="flex items-center gap-4">
                     <Link href="/delivery-notes" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm font-medium">
                         <span className="material-symbols-outlined text-lg">arrow_back</span>
@@ -142,7 +142,7 @@ export default function DeliveryNoteViewer({ document, client, ws }: DocumentVie
                                         <div className="w-2/3">
                                             <p className="font-bold text-zinc-900 mb-1 text-xs">IMSAL SERVICES | 7 Lotis Najmat El Janoub, El Jadida</p>
                                             <p className="text-zinc-500 normal-case tracking-normal mb-1">Tél: +212(0)6 61 43 52 83 • Email: i.assal@imsalservices.com • Web: imsalservices.ma</p>
-                                            <p className="text-zinc-400 font-mono">ICE: 002972127000089 • RC: 19215 • IF: 000081196000005 • CNSS: 5249290 • TP: 43003134</p>
+                                            <p className="text-zinc-400 font-mono">ICE: 002972127000089 • RC: 19215 • IF: 51683449 • CNSS: 5249290 • TP: 43003134</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="font-bold text-zinc-900 mb-1">Coordonnées Bancaires</p>

@@ -42,7 +42,7 @@ export default async function SettingsPage() {
         logo_url: "/logo.png", // Hardcoded logo
         ice: "002972127000089",
         rc: "19215",
-        tax_id: "000081196000005",
+        tax_id: "51683449",
         cnss: "5249290",
         tp: "43003134",
         bank_name: "BANK OF AFRICA",

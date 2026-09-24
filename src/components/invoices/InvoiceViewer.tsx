@@ -51,7 +51,7 @@ function numberToFrenchWords(n: number): string {
 const formatNumber = (amount: number) => { if (amount === undefined || amount === null) return '0.00'; return new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount); }
 const formatDate = (dateStr: string) => { try { const d = dateStr ? new Date(dateStr) : new Date(); if (isNaN(d.getTime())) return '-'; return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); } catch (e) { return '-'; } }
 
-const ITEMS_PER_PAGE = 4;
+const ITEMS_PER_PAGE = 6;
 function chunkItems(items: any[]) {
     const chunks = [];
     for (let i = 0; i < items.length; i += ITEMS_PER_PAGE) {
@@ -275,7 +275,7 @@ export default function InvoiceViewer({ invoice, client, ws }: InvoiceViewerProp
                                                 Tél: +212(0)6 61 43 52 83 • Email: i.assal@imsalservices.com • Web: imsalservices.ma
                                             </p>
                                             <p className="text-zinc-400 font-mono">
-                                                ICE: 002972127000089 • RC: 19215 • IF: 000081196000005 • CNSS: 5249290 • TP: 43003134
+                                                ICE: 002972127000089 • RC: 19215 • IF: 51683449 • CNSS: 5249290 • TP: 43003134
                                             </p>
                                         </div>
                                         <div className="text-right">
